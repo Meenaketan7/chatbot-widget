@@ -1,5 +1,5 @@
 {
-  "name": "@GoodWorkLabs/chatbot-widget",
+  "name": "@Meenaketan7/chatbot-widget",
   "version": "1.0.0",
   "description": "A lightweight, universal chatbot widget that works across all frameworks and platforms",
   "main": "./dist/cjs/index.js",
@@ -30,7 +30,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/GoodWorkLabs-Team/chatbot-widget.git"
+    "url": "git+https://github.com/Meenaketan7/chatbot-widget.git"
   },
   "keywords": [
     "chatbot",
@@ -41,12 +41,12 @@
     "chat",
     "messaging"
   ],
-  "author": "GoodWorkLabs",
+  "author": "Meenaketan7",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/GoodWorkLabs-Team/chatbot-widget/issues"
+    "url": "https://github.com/Meenaketan7/chatbot-widget.git/issues"
   },
-  "homepage": "https://github.com/GoodWorkLabs-Team/chatbot-widget#readme",
+  "homepage": "https://github.com/Meenaketan7/chatbot-widget.git#readme",
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
