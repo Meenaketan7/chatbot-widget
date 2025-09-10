@@ -1,0 +1,60 @@
+{
+  "name": "@GoodWorkLabs/chatbot-widget",
+  "version": "1.0.0",
+  "description": "A lightweight, universal chatbot widget that works across all frameworks and platforms",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "umd:main": "./dist/umd/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./umd": "./dist/umd/index.js",
+    "./styles": "./dist/style.css"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/**/*.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoodWorkLabs-Team/chatbot-widget.git"
+  },
+  "keywords": [
+    "chatbot",
+    "widget",
+    "universal",
+    "typescript",
+    "ui",
+    "chat",
+    "messaging"
+  ],
+  "author": "GoodWorkLabs",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/GoodWorkLabs-Team/chatbot-widget/issues"
+  },
+  "homepage": "https://github.com/GoodWorkLabs-Team/chatbot-widget#readme",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "rollup": "^4.50.1",
+    "rollup-plugin-dts": "^6.2.3",
+    "rollup-plugin-postcss": "^4.0.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.2"
+  }
+}
