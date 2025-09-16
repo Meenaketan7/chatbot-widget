@@ -1,42 +1,17 @@
-// Enhanced chatbot with API integration
 import { ChatbotConfig, ChatbotState, ChatMessage, MessageType } from "./types";
 import { createUI } from "./ui";
 import { generateId, sanitizeHtml } from "./utils";
 
-// NEW: API Configuration interface
-interface ChatbotApiConfig {
-  endpoint: string;
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  headers?: Record<string, string>;
-  payloadMapping?: {
-    static?: Record<string, any>;
-    dynamic?: Record<string, string>;
-  };
-  responseMapping?: Record<string, string>;
-}
-
-// Enhanced ChatbotConfig to include API settings
-interface EnhancedChatbotConfig extends ChatbotConfig {
-  // API Configuration
-  apiConfig?: ChatbotApiConfig;
-  botId?: string;
-  userId?: string;
-
-  // Storage options
-  storeInDatabase?: boolean;
-  localStorageOnly?: boolean;
-}
-
 export class Chatbot {
-  private config!: EnhancedChatbotConfig;
+  private config!: ChatbotConfig;
   private state!: ChatbotState;
   private root!: HTMLElement;
   private ui!: ReturnType<typeof createUI>;
   private storageKey!: string;
-  private sessionId!: string;
+  private sessionId!: string; // NEW: Track current session
   private static instance: Chatbot | null = null;
 
-  constructor(config: Partial<EnhancedChatbotConfig> = {}) {
+  constructor(config: Partial<ChatbotConfig> = {}) {
     if (Chatbot.instance) {
       console.warn("Chatbot instance already exists. Use existing instance.");
       return Chatbot.instance;
@@ -54,20 +29,18 @@ export class Chatbot {
       typingMessage: "Typing...",
       storageKey: "chatbot_messages",
       autoOpenDelayMs: 0,
-      storeInDatabase: true,
-      localStorageOnly: false,
       ...config,
-    } as EnhancedChatbotConfig;
+    } as ChatbotConfig;
 
     this.storageKey = this.config.storageKey || "chatbot_messages";
-    this.sessionId = this.generateSessionId();
+    this.sessionId = this.generateSessionId(); // NEW: Generate unique session ID
 
     // Check if root already exists
     let existingRoot = document.querySelector(
       ".chatbot-widget-root",
     ) as HTMLElement;
     if (existingRoot) {
-      existingRoot.remove();
+      existingRoot.remove(); // Remove existing instance
     }
 
     // initial state (load persisted if exists)
@@ -92,11 +65,12 @@ export class Chatbot {
       onToggle: () => this.toggle(),
       onSend: (msg) => this.sendMessage(msg),
       onClose: () => this.close(),
-      onReset: () => this.resetSession(),
+      onReset: () => this.resetSession(), // NEW: Reset session handler
       onOptionSelect: (optionId, optionText, messageId) =>
         this.handleOptionSelection(optionId, optionText, messageId),
     });
 
+    // Set singleton instance
     Chatbot.instance = this;
 
     // render existing messages
@@ -107,36 +81,8 @@ export class Chatbot {
       setTimeout(() => this.open(), this.config.autoOpenDelayMs);
     }
 
-    // Initialize session
-    this.initializeSession();
-
-    this.updateInputState();
-  }
-
-  private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  // NEW: Initialize session with API
-  private async initializeSession() {
-    if (this.config.storeInDatabase && this.config.apiConfig) {
-      try {
-        await this.sendToApi({
-          sessionId: this.sessionId,
-          messageId: generateId(),
-          content: "Session started",
-          role: "system",
-          type: "system",
-          storeInDb: true,
-        });
-        console.log(`Session ${this.sessionId} initialized with API`);
-      } catch (error) {
-        console.warn("Failed to initialize session with API:", error);
-      }
-    }
-
-    // Add welcome message
     if (this.state.messages.length === 0 && this.config.welcomeMessage) {
+      // push welcome after a short delay
       setTimeout(
         () =>
           this.pushMessage({
@@ -149,49 +95,16 @@ export class Chatbot {
         300,
       );
     }
+
+    this.updateInputState();
   }
 
-  // NEW: Send data to API
-  private async sendToApi(data: {
-    sessionId: string;
-    messageId?: string;
-    content?: string;
-    role?: string;
-    type?: string;
-    payload?: any;
-    timestamp?: string;
-    storeInDb?: boolean;
-  }): Promise<any> {
-    if (!this.config.apiConfig?.endpoint) {
-      throw new Error("API endpoint not configured");
-    }
-
-    const apiPayload = {
-      ...data,
-      botId: this.config.botId,
-      userId: this.config.userId,
-      apiConfig: this.config.apiConfig,
-      storeInDb: data.storeInDb ?? this.config.storeInDatabase,
-    };
-
-    const response = await fetch(this.config.apiConfig.endpoint, {
-      method: this.config.apiConfig.method || "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...this.config.apiConfig.headers,
-      },
-      body: JSON.stringify(apiPayload),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `API request failed: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    return response.json();
+  // NEW: Generate unique session ID
+  private generateSessionId(): string {
+    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  // NEW: Reset session method
   resetSession() {
     // Generate new session ID
     this.sessionId = this.generateSessionId();
@@ -205,7 +118,7 @@ export class Chatbot {
     this.state.isTyping = false;
 
     // Clear persisted messages
-    if (this.config.persistMessages && this.config.localStorageOnly) {
+    if (this.config.persistMessages) {
       try {
         localStorage.removeItem(this.storageKey);
       } catch {}
@@ -216,8 +129,20 @@ export class Chatbot {
     this.ui.setTyping(false);
     this.ui.renderMessages(this.state.messages);
 
-    // Reinitialize session
-    this.initializeSession();
+    // Add welcome message for new session
+    if (this.config.welcomeMessage) {
+      setTimeout(
+        () =>
+          this.pushMessage({
+            id: generateId(),
+            type: "text",
+            content: this.config.welcomeMessage,
+            role: "assistant",
+            timestamp: new Date(),
+          }),
+        500, // Slight delay to show the reset effect
+      );
+    }
 
     // Trigger onReset callback if provided
     this.config.onReset?.();
@@ -227,68 +152,63 @@ export class Chatbot {
 
   private persist() {
     if (!this.config.persistMessages) return;
+    try {
+      const storedDataStr = localStorage.getItem(this.storageKey);
+      let allSessions = storedDataStr ? JSON.parse(storedDataStr) : [];
 
-    // Only persist to localStorage if specified or as fallback
-    if (this.config.localStorageOnly || !this.config.storeInDatabase) {
-      try {
-        const storedDataStr = localStorage.getItem(this.storageKey);
-        let allSessions = storedDataStr ? JSON.parse(storedDataStr) : [];
-        if (!Array.isArray(allSessions)) {
-          allSessions = [];
-        }
+      if (!Array.isArray(allSessions)) {
+        allSessions = [];
+      }
 
-        // Remove current session if exists
-        allSessions = allSessions.filter(
-          (sess: any) => sess.sessionId !== this.sessionId,
-        );
+      // Remove current session if exists
+      allSessions = allSessions.filter(
+        (sess: any) => sess.sessionId !== this.sessionId,
+      );
 
-        // Ensure messages are sorted by timestamp
-        const orderedMessages = [...this.state.messages].sort(
-          (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
-        );
+      // Ensure messages are sorted by timestamp
+      const orderedMessages = [...this.state.messages].sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      );
 
-        // Push current session
-        allSessions.push({
-          sessionId: this.sessionId,
-          messages: orderedMessages,
-          timestamp: Date.now(),
-        });
+      // Push current session
+      allSessions.push({
+        sessionId: this.sessionId,
+        messages: orderedMessages,
+        timestamp: Date.now(),
+      });
 
-        // Ensure sessions are stored in chronological order
-        allSessions.sort((a: any, b: any) => a.timestamp - b.timestamp);
-        localStorage.setItem(this.storageKey, JSON.stringify(allSessions));
-      } catch {}
-    }
+      // Ensure sessions are stored in chronological order
+      allSessions.sort((a: any, b: any) => a.timestamp - b.timestamp);
+
+      localStorage.setItem(this.storageKey, JSON.stringify(allSessions));
+    } catch {}
   }
 
   private loadMessages(): ChatMessage[] | null {
-    if (this.config.localStorageOnly || !this.config.storeInDatabase) {
-      try {
-        const raw = localStorage.getItem(this.storageKey);
-        if (!raw) return null;
+    try {
+      const raw = localStorage.getItem(this.storageKey);
+      if (!raw) return null;
 
-        const allSessions = JSON.parse(raw);
-        if (Array.isArray(allSessions) && allSessions.length > 0) {
-          // Always load the latest session
-          const lastSession = allSessions[allSessions.length - 1];
-          this.sessionId = lastSession.sessionId;
+      const allSessions = JSON.parse(raw);
+      if (Array.isArray(allSessions) && allSessions.length > 0) {
+        // Always load the latest session
+        const lastSession = allSessions[allSessions.length - 1];
+        this.sessionId = lastSession.sessionId;
 
-          // Sort messages by timestamp to guarantee sequence
-          return lastSession.messages
-            .map((p: any) => ({
-              ...p,
-              timestamp: new Date(p.timestamp),
-            }))
-            .sort(
-              (a: any, b: any) => a.timestamp.getTime() - b.timestamp.getTime(),
-            );
-        }
-        return null;
-      } catch {
-        return null;
+        // Sort messages by timestamp to guarantee sequence
+        return lastSession.messages
+          .map((p: any) => ({
+            ...p,
+            timestamp: new Date(p.timestamp),
+          }))
+          .sort(
+            (a: any, b: any) => a.timestamp.getTime() - b.timestamp.getTime(),
+          );
       }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
   }
 
   public getAllSessions(): Array<{
@@ -301,6 +221,7 @@ export class Chatbot {
 
     const sessions = JSON.parse(raw);
     if (Array.isArray(sessions)) {
+      // Ensure sessions are ordered and messages inside each session are ordered
       return sessions
         .map((s) => ({
           ...s,
@@ -315,9 +236,9 @@ export class Chatbot {
         }))
         .sort((a, b) => a.timestamp - b.timestamp);
     }
+
     return [];
   }
-
   private updateInputState() {
     const hasActiveOptionSelection = this.state.messages.some(
       (msg) =>
@@ -364,40 +285,11 @@ export class Chatbot {
     optionText: string,
   ) {
     try {
-      // Send to API if configured
-      if (this.config.storeInDatabase && this.config.apiConfig) {
-        try {
-          const apiResponse = await this.sendToApi({
-            sessionId: this.sessionId,
-            messageId: generateId(),
-            content: optionText,
-            role: "user",
-            type: "option_selection",
-            payload: { optionId, optionText },
-            timestamp: new Date().toISOString(),
-            storeInDb: true,
-          });
-
-          // Handle API response
-          if (apiResponse?.data?.apiResponse) {
-            const response = apiResponse.data.apiResponse;
-            if (response.content) {
-              this.pushMessage(response.content, "assistant");
-              this.persist();
-              return;
-            }
-          }
-        } catch (apiError) {
-          console.error("API call failed for option selection:", apiError);
-        }
-      }
-
-      // Fallback to original handler
       const result = this.config.onMessageSend?.({
         type: "option_selection",
         optionId,
         optionText,
-        sessionId: this.sessionId,
+        sessionId: this.sessionId, // NEW: Include session ID in callback
       } as any);
 
       if (!result) return;
@@ -512,11 +404,13 @@ export class Chatbot {
     setTimeout(() => this.ui.focusInput(), 120);
   }
 
+  // UPDATED: Close only hides the panel, doesn't affect session
   close() {
     if (!this.state.isOpen) return;
     this.state.isOpen = false;
     this.ui.setOpen(false);
     this.config.onClose?.();
+    // Note: Session and messages are preserved when closing
   }
 
   toggle() {
@@ -528,60 +422,25 @@ export class Chatbot {
       return;
     }
 
-    let messageData: ChatMessage;
-
     if (typeof message === "string") {
       if (!message.trim()) return;
-      messageData = {
-        id: generateId(),
-        type: "text",
-        content: message,
-        role: "user",
-        timestamp: new Date(),
-      };
-      this.pushMessage(messageData);
+      this.pushMessage(message, "user");
     } else {
-      messageData = {
-        id: generateId(),
-        type: (message.type || "text") as MessageType,
-        content: message.payload?.text || "",
-        payload: message.payload,
-        role: "user",
-        timestamp: new Date(),
-      };
-      this.pushMessage(messageData);
+      this.pushMessage(
+        {
+          id: generateId(),
+          type: (message.type || "text") as MessageType,
+          content: message.payload?.text || "",
+          payload: message.payload,
+          role: "user",
+          timestamp: new Date(),
+        },
+        "user",
+      );
     }
 
     try {
-      // Send to API if configured
-      if (this.config.storeInDatabase && this.config.apiConfig) {
-        try {
-          const apiResponse = await this.sendToApi({
-            sessionId: this.sessionId,
-            messageId: messageData.id,
-            content: messageData.content,
-            role: messageData.role,
-            type: messageData.type,
-            payload: messageData.payload,
-            timestamp: messageData.timestamp.toISOString(),
-            storeInDb: true,
-          });
-
-          // Handle API response
-          if (apiResponse?.data?.apiResponse) {
-            const response = apiResponse.data.apiResponse;
-            if (response.content) {
-              this.pushMessage(response.content, "assistant");
-              this.persist();
-              return;
-            }
-          }
-        } catch (apiError) {
-          console.error("API call failed:", apiError);
-        }
-      }
-
-      // Fallback to original message handler
+      // Include session ID in the message context
       const messageWithSession =
         typeof message === "string"
           ? { content: message, sessionId: this.sessionId }
@@ -637,6 +496,7 @@ export class Chatbot {
     }
   }
 
+  // UPDATED: clearMessages now calls resetSession for consistency
   clearMessages() {
     this.resetSession();
   }
@@ -648,11 +508,12 @@ export class Chatbot {
     Chatbot.instance = null;
   }
 
-  updateConfig(cfg: Partial<EnhancedChatbotConfig>) {
+  updateConfig(cfg: Partial<ChatbotConfig>) {
     this.config = { ...this.config, ...cfg };
     this.ui.updateConfig(this.config);
   }
 
+  // NEW: Get current session ID
   getSessionId(): string {
     return this.sessionId;
   }
