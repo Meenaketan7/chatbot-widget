@@ -349,6 +349,30 @@
     return sent;
   };
 
+  const runCustomMenuActionExample = async (context = {}) => {
+    const actionDetails = {
+      id: context.id || "custom-action",
+      text: context.text || "Custom menu action",
+      action: context.action || "custom",
+      actionValue: context.actionValue || "",
+      triggeredAt: new Date().toISOString(),
+    };
+
+    patchFlowData({
+      lastMenuAction: actionDetails,
+    });
+
+    console.info("[demo:menuCustomAction]", actionDetails, context);
+
+    if (bot) {
+      await bot.pushMessage(
+        `Custom menu function executed for "${actionDetails.text}". This item did not navigate anywhere; it ran your own JavaScript handler instead.`,
+      );
+    }
+
+    return actionDetails;
+  };
+
   const createBotConfig = () => ({
     title: "Widget Demo Bot",
     primaryColor: THEMES[0].primaryColor,
@@ -404,8 +428,19 @@
             icon: "🧾",
             text: "Send Summary",
             action: "custom",
-            customHandler: async () => {
+            customHandler: async (context) => {
+              console.info("[demo:menuSummaryContext]", context);
               await sendManualSummary();
+            },
+          },
+          {
+            id: "custom-function",
+            icon: "⚙️",
+            text: "Run Custom Function",
+            action: "custom",
+            actionValue: "demo-custom-function",
+            customHandler: async (context) => {
+              await runCustomMenuActionExample(context);
             },
           },
           {
@@ -413,7 +448,8 @@
             icon: "🎨",
             text: "Toggle Theme",
             action: "custom",
-            customHandler: async () => {
+            customHandler: async (context) => {
+              console.info("[demo:menuThemeContext]", context);
               await toggleTheme();
             },
           },
@@ -687,6 +723,7 @@
       getInputType: () => bot.getInputType(),
       getAllSessions: () => bot.getAllSessions(),
       sendManualSummary,
+      runCustomMenuActionExample,
       showInitialOptions: ensureInitialOptions,
       stopAutoOpen: () => {
         if (typeof stopAutoOpen === "function") {

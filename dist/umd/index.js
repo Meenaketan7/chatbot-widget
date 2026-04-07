@@ -27,21 +27,38 @@
   `;
       menuConfig.items.forEach((item, index) => {
           const isLast = index === menuConfig.items.length - 1;
+          const itemIcon = item.icon
+              ? `<div class="menu-icon-smatest">${item.icon}</div>`
+              : "";
+          const itemContent = `
+      ${itemIcon}
+      <span>${item.text}</span>
+    `;
           menuHTML += `
       <div class="pull-left full-width menu-option-div ${!isLast ? "border-bottom" : ""}">
         <label class="pull-left full-width pointer menu-option-label">
-          ${item.icon ? `<div class="menu-icon-smatest">${item.icon}</div>` : ""}
-          <a 
-            title="${item.text}" 
-            class="text-black bot-google-font menu-option-link" 
-            href="${item.action === "call" ? `tel:${item.actionValue}` : item.action === "email" ? `mailto:${item.actionValue}` : item.actionValue || "#"}"
-            ${item.action === "redirect" ? 'target="_blank" rel="noopener noreferrer"' : ""}
-            data-menu-id="${item.id}"
-            data-menu-action="${item.action}"
-            ${item.actionValue ? `data-menu-value="${item.actionValue}"` : ""}
-          >
-            <span>${item.text}</span>
-          </a>
+          ${item.action === "custom"
+            ? `<button
+                  type="button"
+                  title="${item.text}"
+                  class="text-black bot-google-font menu-option-trigger menu-option-button"
+                  data-menu-id="${item.id}"
+                  data-menu-action="${item.action}"
+                  ${item.actionValue ? `data-menu-value="${item.actionValue}"` : ""}
+                >
+                  ${itemContent}
+                </button>`
+            : `<a
+                  title="${item.text}"
+                  class="text-black bot-google-font menu-option-trigger menu-option-link"
+                  href="${item.action === "call" ? `tel:${item.actionValue}` : item.action === "email" ? `mailto:${item.actionValue}` : item.actionValue || "#"}"
+                  ${item.action === "redirect" ? 'target="_blank" rel="noopener noreferrer"' : ""}
+                  data-menu-id="${item.id}"
+                  data-menu-action="${item.action}"
+                  ${item.actionValue ? `data-menu-value="${item.actionValue}"` : ""}
+                >
+                  ${itemContent}
+                </a>`}
         </label>
       </div>
     `;
@@ -64,7 +81,7 @@
           return;
       const menuToggleBtn = menuContainer.querySelector(".menu-toggle-btn");
       const menuOptionsDiv = menuContainer.querySelector(".menu-options-div");
-      const menuLinks = Array.from(menuContainer.querySelectorAll(".menu-option-link"));
+      const menuTriggers = Array.from(menuContainer.querySelectorAll(".menu-option-trigger"));
       if (!menuToggleBtn || !menuOptionsDiv)
           return;
       if (menuContainer.__menu_listeners_attached)
@@ -127,21 +144,18 @@
           }
       };
       document.addEventListener("keydown", onKeyDown);
-      menuLinks.forEach((link) => {
+      menuTriggers.forEach((trigger) => {
           const onClick = async (event) => {
-              const action = link.getAttribute("data-menu-action");
-              const menuId = link.getAttribute("data-menu-id");
+              const action = trigger.getAttribute("data-menu-action");
+              const menuId = trigger.getAttribute("data-menu-id");
+              const value = trigger.getAttribute("data-menu-value");
               if (action === "custom") {
                   event.preventDefault();
-                  try {
-                      const menuItem = menuConfig.items.find((item) => item.id === menuId);
-                      if (menuItem?.customHandler) {
-                          await Promise.resolve(menuItem.customHandler());
-                      }
-                  }
-                  catch (error) {
-                      console.error("Custom menu action failed:", error);
-                  }
+                  await executeCustomMenuAction(menuConfig, menuId, {
+                      event,
+                      action,
+                      actionValue: value || undefined,
+                  });
                   closeMenu();
                   return;
               }
@@ -150,19 +164,36 @@
           const onKey = (event) => {
               if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  link.click();
+                  trigger.click();
               }
           };
-          link.addEventListener("click", onClick);
-          link.addEventListener("keydown", onKey);
+          trigger.addEventListener("click", onClick);
+          trigger.addEventListener("keydown", onKey);
       });
       menuContainer.__menu_cleanup = () => {
           menuToggleBtn.removeEventListener("click", toggleMenu);
           document.removeEventListener("click", closeMenuOutside);
           document.removeEventListener("keydown", onKeyDown);
-          menuLinks.forEach((link) => link.replaceWith(link.cloneNode(true)));
+          menuTriggers.forEach((trigger) => trigger.replaceWith(trigger.cloneNode(true)));
           delete menuContainer.__menu_listeners_attached;
       };
+  }
+  async function executeCustomMenuAction(menuConfig, menuId, partialContext = {}) {
+      const menuItem = menuConfig.items.find((item) => item.id === menuId);
+      if (!menuItem?.customHandler)
+          return;
+      try {
+          await Promise.resolve(menuItem.customHandler({
+              id: menuItem.id,
+              text: menuItem.text,
+              action: menuItem.action,
+              actionValue: menuItem.actionValue,
+              ...partialContext,
+          }));
+      }
+      catch (error) {
+          console.error("Custom menu action failed:", error);
+      }
   }
 
   /**
@@ -2787,7 +2818,7 @@
         align-items: center;
       }
 
-      .menu-option-link {
+      .menu-option-trigger {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -2798,13 +2829,17 @@
         transition: color 0.2s ease;
         width: 100%;
         white-space: nowrap;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
       }
 
-      .menu-option-link:hover {
+      .menu-option-trigger:hover {
         color: var(--primary);
       }
 
-      .menu-option-link span {
+      .menu-option-trigger span {
         flex: 1;
       }
 
@@ -4517,11 +4552,18 @@
        * This allows users to change the input field type on the fly
        */
       setInputType(type, config) {
-          // Update config
+          const currentInputConfig = this.config.inputConfig;
+          // Preserve menu and other existing input config while switching modes.
           this.config.inputConfig = {
+              ...(currentInputConfig || {}),
               type,
-              placeholder: config?.placeholder,
-              phoneConfig: config?.phoneConfig,
+              placeholder: config?.placeholder ?? currentInputConfig?.placeholder,
+              phoneConfig: config?.phoneConfig !== undefined
+                  ? {
+                      ...(currentInputConfig?.phoneConfig || {}),
+                      ...config.phoneConfig,
+                  }
+                  : currentInputConfig?.phoneConfig,
           };
           // Update state
           this.state.currentInputType = type;

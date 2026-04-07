@@ -1,4 +1,9 @@
-import { InputFieldType, InputMenuConfig, MenuItemConfig } from "../core/types";
+import {
+  InputFieldType,
+  InputMenuConfig,
+  MenuActionContext,
+  MenuItemConfig,
+} from "../core/types";
 
 /**
  * Render menu HTML based on configuration (SmartBot Style)
@@ -32,21 +37,41 @@ export function renderMenuHTML(
 
   menuConfig.items.forEach((item: MenuItemConfig, index: number) => {
     const isLast = index === menuConfig.items.length - 1;
+    const itemIcon = item.icon
+      ? `<div class="menu-icon-smatest">${item.icon}</div>`
+      : "";
+    const itemContent = `
+      ${itemIcon}
+      <span>${item.text}</span>
+    `;
+
     menuHTML += `
       <div class="pull-left full-width menu-option-div ${!isLast ? "border-bottom" : ""}">
         <label class="pull-left full-width pointer menu-option-label">
-          ${item.icon ? `<div class="menu-icon-smatest">${item.icon}</div>` : ""}
-          <a 
-            title="${item.text}" 
-            class="text-black bot-google-font menu-option-link" 
-            href="${item.action === "call" ? `tel:${item.actionValue}` : item.action === "email" ? `mailto:${item.actionValue}` : item.actionValue || "#"}"
-            ${item.action === "redirect" ? 'target="_blank" rel="noopener noreferrer"' : ""}
-            data-menu-id="${item.id}"
-            data-menu-action="${item.action}"
-            ${item.actionValue ? `data-menu-value="${item.actionValue}"` : ""}
-          >
-            <span>${item.text}</span>
-          </a>
+          ${
+            item.action === "custom"
+              ? `<button
+                  type="button"
+                  title="${item.text}"
+                  class="text-black bot-google-font menu-option-trigger menu-option-button"
+                  data-menu-id="${item.id}"
+                  data-menu-action="${item.action}"
+                  ${item.actionValue ? `data-menu-value="${item.actionValue}"` : ""}
+                >
+                  ${itemContent}
+                </button>`
+              : `<a
+                  title="${item.text}"
+                  class="text-black bot-google-font menu-option-trigger menu-option-link"
+                  href="${item.action === "call" ? `tel:${item.actionValue}` : item.action === "email" ? `mailto:${item.actionValue}` : item.actionValue || "#"}"
+                  ${item.action === "redirect" ? 'target="_blank" rel="noopener noreferrer"' : ""}
+                  data-menu-id="${item.id}"
+                  data-menu-action="${item.action}"
+                  ${item.actionValue ? `data-menu-value="${item.actionValue}"` : ""}
+                >
+                  ${itemContent}
+                </a>`
+          }
         </label>
       </div>
     `;
@@ -84,8 +109,8 @@ export function attachMenuListeners(
   const menuOptionsDiv = menuContainer.querySelector(
     ".menu-options-div",
   ) as HTMLElement | null;
-  const menuLinks = Array.from(
-    menuContainer.querySelectorAll(".menu-option-link"),
+  const menuTriggers = Array.from(
+    menuContainer.querySelectorAll(".menu-option-trigger"),
   ) as HTMLElement[];
 
   if (!menuToggleBtn || !menuOptionsDiv) return;
@@ -163,21 +188,19 @@ export function attachMenuListeners(
   };
   document.addEventListener("keydown", onKeyDown);
 
-  menuLinks.forEach((link) => {
+  menuTriggers.forEach((trigger) => {
     const onClick = async (event: Event) => {
-      const action = link.getAttribute("data-menu-action");
-      const menuId = link.getAttribute("data-menu-id");
+      const action = trigger.getAttribute("data-menu-action");
+      const menuId = trigger.getAttribute("data-menu-id");
+      const value = trigger.getAttribute("data-menu-value");
 
       if (action === "custom") {
         event.preventDefault();
-        try {
-          const menuItem = menuConfig.items.find((item) => item.id === menuId);
-          if (menuItem?.customHandler) {
-            await Promise.resolve(menuItem.customHandler());
-          }
-        } catch (error) {
-          console.error("Custom menu action failed:", error);
-        }
+        await executeCustomMenuAction(menuConfig, menuId, {
+          event,
+          action,
+          actionValue: value || undefined,
+        });
         closeMenu();
         return;
       }
@@ -188,21 +211,46 @@ export function attachMenuListeners(
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        (link as HTMLElement).click();
+        trigger.click();
       }
     };
 
-    link.addEventListener("click", onClick);
-    link.addEventListener("keydown", onKey);
+    trigger.addEventListener("click", onClick);
+    trigger.addEventListener("keydown", onKey);
   });
 
   (menuContainer as any).__menu_cleanup = () => {
     menuToggleBtn.removeEventListener("click", toggleMenu);
     document.removeEventListener("click", closeMenuOutside);
     document.removeEventListener("keydown", onKeyDown);
-    menuLinks.forEach((link) => link.replaceWith(link.cloneNode(true)));
+    menuTriggers.forEach((trigger) =>
+      trigger.replaceWith(trigger.cloneNode(true)),
+    );
     delete (menuContainer as any).__menu_listeners_attached;
   };
+}
+
+async function executeCustomMenuAction(
+  menuConfig: InputMenuConfig,
+  menuId: string | null,
+  partialContext: Partial<MenuActionContext> = {},
+): Promise<void> {
+  const menuItem = menuConfig.items.find((item) => item.id === menuId);
+  if (!menuItem?.customHandler) return;
+
+  try {
+    await Promise.resolve(
+      menuItem.customHandler({
+        id: menuItem.id,
+        text: menuItem.text,
+        action: menuItem.action,
+        actionValue: menuItem.actionValue,
+        ...partialContext,
+      }),
+    );
+  } catch (error) {
+    console.error("Custom menu action failed:", error);
+  }
 }
 
 export async function handleMenuAction(
@@ -231,14 +279,10 @@ export async function handleMenuAction(
       break;
 
     case "custom": {
-      const menuItem = menuConfig.items.find((item) => item.id === menuId);
-      if (menuItem?.customHandler) {
-        try {
-          await Promise.resolve(menuItem.customHandler());
-        } catch (error) {
-          console.error("Custom menu action failed:", error);
-        }
-      }
+      await executeCustomMenuAction(menuConfig, menuId, {
+        action: "custom",
+        actionValue: value || undefined,
+      });
       break;
     }
 

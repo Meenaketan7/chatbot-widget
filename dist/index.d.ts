@@ -3,13 +3,20 @@ type StorageStrategy = "localStorage";
 type SyncStatus = "synced" | "pending" | "failed";
 type ChatbotPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
 type MenuActionType = "redirect" | "call" | "email" | "custom";
+interface MenuActionContext {
+    id: string;
+    text: string;
+    action: MenuActionType;
+    actionValue?: string;
+    event?: Event;
+}
 interface MenuItemConfig {
     id: string;
     icon: string;
     text: string;
     action: MenuActionType;
     actionValue?: string;
-    customHandler?: () => void | Promise<void>;
+    customHandler?: (context?: MenuActionContext) => void | Promise<void>;
 }
 interface InputMenuConfig {
     enabled: boolean;

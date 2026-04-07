@@ -699,11 +699,21 @@ export class Chatbot {
       };
     },
   ): void {
-    // Update config
+    const currentInputConfig = this.config.inputConfig;
+
+    // Preserve menu and other existing input config while switching modes.
     this.config.inputConfig = {
+      ...(currentInputConfig || {}),
       type,
-      placeholder: config?.placeholder,
-      phoneConfig: config?.phoneConfig,
+      placeholder:
+        config?.placeholder ?? currentInputConfig?.placeholder,
+      phoneConfig:
+        config?.phoneConfig !== undefined
+          ? {
+              ...(currentInputConfig?.phoneConfig || {}),
+              ...config.phoneConfig,
+            }
+          : currentInputConfig?.phoneConfig,
     };
 
     // Update state

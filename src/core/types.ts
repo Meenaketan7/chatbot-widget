@@ -21,6 +21,14 @@ export type ChatbotPosition =
 // Menu item action type
 export type MenuActionType = "redirect" | "call" | "email" | "custom";
 
+export interface MenuActionContext {
+  id: string;
+  text: string;
+  action: MenuActionType;
+  actionValue?: string;
+  event?: Event;
+}
+
 // Menu item configuration
 export interface MenuItemConfig {
   id: string;
@@ -28,7 +36,7 @@ export interface MenuItemConfig {
   text: string;
   action: MenuActionType;
   actionValue?: string; // URL, phone number, email, or custom identifier
-  customHandler?: () => void | Promise<void>;
+  customHandler?: (context?: MenuActionContext) => void | Promise<void>;
 }
 
 // Input menu configuration

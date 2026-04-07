@@ -977,7 +977,7 @@ export function buildUIStyles(
         align-items: center;
       }
 
-      .menu-option-link {
+      .menu-option-trigger {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -988,13 +988,17 @@ export function buildUIStyles(
         transition: color 0.2s ease;
         width: 100%;
         white-space: nowrap;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
       }
 
-      .menu-option-link:hover {
+      .menu-option-trigger:hover {
         color: var(--primary);
       }
 
-      .menu-option-link span {
+      .menu-option-trigger span {
         flex: 1;
       }
 
