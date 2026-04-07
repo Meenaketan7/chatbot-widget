@@ -1,5 +1,6 @@
 import type { ChatMessage } from "../core/types";
 import { sanitizeHtml } from "../core/utils";
+import { renderIconMarkup, renderOptionalControlIcon } from "./ui.icons";
 import type { MessageRendererOptions } from "./ui.types";
 
 export function createMessageRenderer(options: MessageRendererOptions) {
@@ -100,7 +101,7 @@ export function createMessageRenderer(options: MessageRendererOptions) {
       const confirmBtn = document.createElement("button");
       confirmBtn.type = "button";
       confirmBtn.className = "cw-multi-confirm";
-      confirmBtn.textContent = confirmButtonText;
+      confirmBtn.innerHTML = `${renderOptionalControlIcon(config, "multiConfirm", "cw-control-icon cw-button-icon")}<span class="cw-button-label">${sanitizeHtml(confirmButtonText)}</span>`;
 
       const syncConfirmState = () => {
         if (!allowMultiple) return;
@@ -262,8 +263,7 @@ export function createMessageRenderer(options: MessageRendererOptions) {
 
     const avatar = document.createElement("div");
     avatar.className = "cw-bot-avatar";
-    avatar.innerHTML =
-      typeof config.botIcon === "string" ? config.botIcon : "🤖";
+    avatar.innerHTML = renderIconMarkup(config.botIcon, "🤖");
     typingGroup.appendChild(avatar);
 
     const typingMessage = document.createElement("div");
@@ -287,8 +287,7 @@ export function createMessageRenderer(options: MessageRendererOptions) {
       if (group[0].role === "assistant") {
         const avatar = document.createElement("div");
         avatar.className = "cw-bot-avatar";
-        avatar.innerHTML =
-          typeof config.botIcon === "string" ? config.botIcon : "🤖";
+        avatar.innerHTML = renderIconMarkup(config.botIcon, "🤖");
         groupContainer.appendChild(avatar);
       }
 

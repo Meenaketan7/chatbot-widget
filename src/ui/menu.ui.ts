@@ -1,15 +1,18 @@
 import {
+  ChatbotConfig,
   InputFieldType,
   InputMenuConfig,
   MenuActionContext,
   MenuItemConfig,
 } from "../core/types";
+import { renderControlIcon, renderIconMarkup } from "./ui.icons";
 
 /**
  * Render menu HTML based on configuration (SmartBot Style)
  */
 
 export function renderMenuHTML(
+  config: ChatbotConfig,
   menuConfig: InputMenuConfig | undefined,
   currentInputType: InputFieldType,
 ): string {
@@ -28,8 +31,8 @@ export function renderMenuHTML(
   let menuHTML = `
     <div class="cw-menu-container">
       <button class="menu-toggle-btn" type="button" aria-label="Menu" aria-expanded="false">
-        <img class="menu-icon-sb menu-toggle-icon" src="https://custpostimages.s3.ap-south-1.amazonaws.com/sb_images/headder_menu_icon_new_sb.svg" alt="Menu">
-        <img class="menu-icon-sb menu-close-icon icon-hidden" src="https://s3.ap-south-1.amazonaws.com/custpostimages/ss_images/close_modal.png" alt="Close">
+        ${renderControlIcon(config, "menu", "cw-control-icon menu-icon-sb menu-toggle-icon")}
+        ${renderControlIcon(config, "menuClose", "cw-control-icon menu-icon-sb menu-close-icon icon-hidden")}
       </button>
 
       <div class="menu-options-div">
@@ -38,7 +41,7 @@ export function renderMenuHTML(
   menuConfig.items.forEach((item: MenuItemConfig, index: number) => {
     const isLast = index === menuConfig.items.length - 1;
     const itemIcon = item.icon
-      ? `<div class="menu-icon-smatest">${item.icon}</div>`
+      ? `<div class="menu-icon-smatest">${renderIconMarkup(item.icon)}</div>`
       : "";
     const itemContent = `
       ${itemIcon}

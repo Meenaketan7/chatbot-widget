@@ -843,6 +843,25 @@ export class Chatbot {
   }
 
   /**
+   * Reset theme-related configuration back to built-in defaults
+   */
+  resetTheme(): void {
+    this.config = {
+      ...this.config,
+      primaryColor: DEFAULT_CONFIG.primaryColor,
+      secondaryColor: DEFAULT_CONFIG.secondaryColor,
+      backgroundColor: DEFAULT_CONFIG.backgroundColor,
+      textColor: DEFAULT_CONFIG.textColor,
+      borderRadius: DEFAULT_CONFIG.borderRadius,
+      fontFamily: DEFAULT_CONFIG.fontFamily,
+      theme: undefined,
+    };
+
+    this.ui.updateConfig(this.config);
+    this.eventEmitter.emit("configUpdate", this.config);
+  }
+
+  /**
    * Get current configuration
    */
   getConfig(): ChatbotConfig {

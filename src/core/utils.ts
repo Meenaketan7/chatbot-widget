@@ -1,6 +1,13 @@
 /**
  * Deep merge objects with proper typing
  */
+function isPlainObject(value: unknown): value is Record<string, any> {
+  if (!value || typeof value !== "object") return false;
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 export function deepMerge<T extends Record<string, any>>(
   target: T,
   source: Partial<T>,
@@ -9,12 +16,16 @@ export function deepMerge<T extends Record<string, any>>(
 
   for (const key in source) {
     if (
-      source[key] &&
-      typeof source[key] === "object" &&
-      !Array.isArray(source[key])
+      isPlainObject(source[key]) &&
+      isPlainObject(result[key])
     ) {
       result[key] = deepMerge(
-        result[key] || ({} as T[Extract<keyof T, string>]),
+        result[key],
+        source[key] as Partial<T[Extract<keyof T, string>]>,
+      );
+    } else if (isPlainObject(source[key])) {
+      result[key] = deepMerge(
+        {} as T[Extract<keyof T, string>],
         source[key] as Partial<T[Extract<keyof T, string>]>,
       );
     } else if (source[key] !== undefined) {

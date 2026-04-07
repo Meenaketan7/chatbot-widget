@@ -55,6 +55,10 @@ class ChatbotElement extends HTMLElement {
   updateConfig(config: Partial<ChatbotConfig>) {
     this.chatbot?.updateConfig(config);
   }
+
+  resetTheme() {
+    this.chatbot?.resetTheme();
+  }
 }
 
 // Register web component if not already registered
@@ -66,6 +70,20 @@ if (!customElements.get("chatbot-widget")) {
 export { Chatbot, ChatbotElement };
 export type {
   ChatbotConfig,
+  RenderableIcon,
+  ChatbotTheme,
+  ChatbotThemeColors,
+  ChatbotThemeTypography,
+  ChatbotThemeLayout,
+  ChatbotThemeSpacing,
+  ChatbotThemeRadius,
+  ChatbotThemeShadows,
+  ChatbotThemeButtons,
+  ChatbotThemeButtonStyle,
+  ChatbotThemeFab,
+  ChatbotThemeFabWave,
+  ChatbotThemeFabStatusDot,
+  ChatbotThemeIcons,
   ChatbotState,
   ChatMessage,
   MessageType,

@@ -18,6 +18,12 @@ export type ChatbotPosition =
   | "bottom-left"
   | "top-right"
   | "top-left";
+
+export type RenderableIconResult = string | Node | null | undefined;
+export type RenderableIcon =
+  | string
+  | Node
+  | (() => RenderableIconResult);
 // Menu item action type
 export type MenuActionType = "redirect" | "call" | "email" | "custom";
 
@@ -32,7 +38,7 @@ export interface MenuActionContext {
 // Menu item configuration
 export interface MenuItemConfig {
   id: string;
-  icon: string; // SVG or emoji
+  icon: RenderableIcon; // SVG/HTML string, DOM node, or render function
   text: string;
   action: MenuActionType;
   actionValue?: string; // URL, phone number, email, or custom identifier
@@ -62,6 +68,237 @@ export interface InputConfig {
   placeholder?: string;
   phoneConfig?: PhoneInputConfig;
   menu?: InputMenuConfig;
+}
+
+export type ThemeValue = string | number;
+export type ThemeScalar = string | number;
+
+export interface ChatbotThemeColors {
+  primary?: ThemeValue;
+  secondary?: ThemeValue;
+  panelBackground?: ThemeValue;
+  bodyBackground?: ThemeValue;
+  footerBackground?: ThemeValue;
+  headerBackground?: ThemeValue;
+  headerText?: ThemeValue;
+  headerSubtext?: ThemeValue;
+  headerAvatarBackground?: ThemeValue;
+  headerActionBackground?: ThemeValue;
+  headerActionHoverBackground?: ThemeValue;
+  textPrimary?: ThemeValue;
+  textSecondary?: ThemeValue;
+  assistantBubbleBackground?: ThemeValue;
+  assistantBubbleText?: ThemeValue;
+  userBubbleBackground?: ThemeValue;
+  userBubbleText?: ThemeValue;
+  inputBackground?: ThemeValue;
+  inputText?: ThemeValue;
+  inputPlaceholder?: ThemeValue;
+  borderColor?: ThemeValue;
+  fabBackground?: ThemeValue;
+  fabText?: ThemeValue;
+  optionBackground?: ThemeValue;
+  optionText?: ThemeValue;
+  menuBackground?: ThemeValue;
+  menuText?: ThemeValue;
+  menuBorderColor?: ThemeValue;
+  sendButtonBackground?: ThemeValue;
+  sendButtonText?: ThemeValue;
+  sendButtonDisabledBackground?: ThemeValue;
+  modalBackground?: ThemeValue;
+  modalTitleText?: ThemeValue;
+  modalText?: ThemeValue;
+  overlayBackground?: ThemeValue;
+  resetButtonBackground?: ThemeValue;
+  resetButtonText?: ThemeValue;
+  resetButtonBorder?: ThemeValue;
+  cancelButtonBackground?: ThemeValue;
+  cancelButtonText?: ThemeValue;
+  cancelButtonBorder?: ThemeValue;
+  success?: ThemeValue;
+  error?: ThemeValue;
+  warning?: ThemeValue;
+  scrollbarThumb?: ThemeValue;
+  scrollbarThumbHover?: ThemeValue;
+}
+
+export interface ChatbotThemeTypography {
+  fontFamily?: ThemeValue;
+  titleSize?: ThemeValue;
+  subtitleSize?: ThemeValue;
+  messageSize?: ThemeValue;
+  inputSize?: ThemeValue;
+  optionSize?: ThemeValue;
+  captionSize?: ThemeValue;
+  titleWeight?: ThemeValue;
+  subtitleWeight?: ThemeValue;
+  messageWeight?: ThemeValue;
+  lineHeight?: ThemeValue;
+}
+
+export interface ChatbotThemeLayout {
+  panelWidth?: ThemeValue;
+  panelHeight?: ThemeValue;
+  panelMaxWidth?: ThemeValue;
+  panelMaxHeight?: ThemeValue;
+  mobilePanelWidth?: ThemeValue;
+  mobilePanelHeight?: ThemeValue;
+  mobilePanelMaxWidth?: ThemeValue;
+  mobilePanelMaxHeight?: ThemeValue;
+  fabSize?: ThemeValue;
+  mobileFabSize?: ThemeValue;
+  fabWaveSize?: ThemeValue;
+  fabBorderWidth?: ThemeValue;
+  headerAvatarSize?: ThemeValue;
+  headerActionSize?: ThemeValue;
+  botAvatarSize?: ThemeValue;
+  sendButtonSize?: ThemeValue;
+  menuToggleSize?: ThemeValue;
+  menuWidth?: ThemeValue;
+  countryDropdownWidth?: ThemeValue;
+  modalWidth?: ThemeValue;
+  messageMaxWidth?: ThemeValue;
+  mobileMessageMaxWidth?: ThemeValue;
+  optionMinWidth?: ThemeValue;
+}
+
+export interface ChatbotThemeSpacing {
+  headerPadding?: ThemeValue;
+  bodyPadding?: ThemeValue;
+  mobileBodyPadding?: ThemeValue;
+  footerPadding?: ThemeValue;
+  bubblePadding?: ThemeValue;
+  optionPadding?: ThemeValue;
+  inputPaddingX?: ThemeValue;
+  menuPadding?: ThemeValue;
+  menuItemPadding?: ThemeValue;
+  modalPadding?: ThemeValue;
+  countryPickerPadding?: ThemeValue;
+  countryItemPadding?: ThemeValue;
+  headerGap?: ThemeValue;
+  bodyGap?: ThemeValue;
+  messageGap?: ThemeValue;
+  optionGap?: ThemeValue;
+}
+
+export interface ChatbotThemeRadius {
+  panel?: ThemeValue;
+  fab?: ThemeValue;
+  bubble?: ThemeValue;
+  bubbleTail?: ThemeValue;
+  input?: ThemeValue;
+  button?: ThemeValue;
+  option?: ThemeValue;
+  menu?: ThemeValue;
+  modal?: ThemeValue;
+  headerAction?: ThemeValue;
+}
+
+export interface ChatbotThemeShadows {
+  panel?: ThemeValue;
+  header?: ThemeValue;
+  fab?: ThemeValue;
+  fabHover?: ThemeValue;
+  assistantBubble?: ThemeValue;
+  userBubble?: ThemeValue;
+  option?: ThemeValue;
+  optionHover?: ThemeValue;
+  input?: ThemeValue;
+  inputFocus?: ThemeValue;
+  sendButton?: ThemeValue;
+  menu?: ThemeValue;
+  dropdown?: ThemeValue;
+  modal?: ThemeValue;
+}
+
+export interface ChatbotThemeButtonStyle {
+  background?: ThemeValue;
+  text?: ThemeValue;
+  borderColor?: ThemeValue;
+  hoverBackground?: ThemeValue;
+  hoverText?: ThemeValue;
+  hoverBorderColor?: ThemeValue;
+  disabledBackground?: ThemeValue;
+  disabledText?: ThemeValue;
+  disabledBorderColor?: ThemeValue;
+}
+
+export interface ChatbotThemeButtons {
+  fab?: ChatbotThemeButtonStyle;
+  send?: ChatbotThemeButtonStyle;
+  menuToggle?: ChatbotThemeButtonStyle;
+  close?: ChatbotThemeButtonStyle;
+  headerReset?: ChatbotThemeButtonStyle;
+  multiConfirm?: ChatbotThemeButtonStyle;
+  modalReset?: ChatbotThemeButtonStyle;
+  modalCancel?: ChatbotThemeButtonStyle;
+}
+
+export interface ChatbotThemeFabWave {
+  enabled?: boolean;
+  color?: ThemeValue;
+  size?: ThemeValue;
+  opacity?: ThemeScalar;
+  duration?: ThemeScalar;
+}
+
+export interface ChatbotThemeFabStatusDot {
+  enabled?: boolean;
+  onlineColor?: ThemeValue;
+  offlineColor?: ThemeValue;
+  size?: ThemeValue;
+  top?: ThemeValue;
+  left?: ThemeValue;
+  borderColor?: ThemeValue;
+  borderWidth?: ThemeValue;
+  shadow?: ThemeValue;
+}
+
+export interface ChatbotThemeFab {
+  icon?: RenderableIcon;
+  iconSize?: ThemeValue;
+  iconColor?: ThemeValue;
+  iconBackground?: ThemeValue;
+  iconPadding?: ThemeValue;
+  iconRadius?: ThemeValue;
+  background?: ThemeValue;
+  text?: ThemeValue;
+  borderColor?: ThemeValue;
+  hoverBackground?: ThemeValue;
+  hoverText?: ThemeValue;
+  hoverBorderColor?: ThemeValue;
+  size?: ThemeValue;
+  mobileSize?: ThemeValue;
+  borderWidth?: ThemeValue;
+  radius?: ThemeValue;
+  shadow?: ThemeValue;
+  hoverShadow?: ThemeValue;
+  wave?: ChatbotThemeFabWave;
+  statusDot?: ChatbotThemeFabStatusDot;
+}
+
+export interface ChatbotThemeIcons {
+  send?: RenderableIcon;
+  close?: RenderableIcon;
+  headerReset?: RenderableIcon;
+  menu?: RenderableIcon;
+  menuClose?: RenderableIcon;
+  multiConfirm?: RenderableIcon;
+  modalReset?: RenderableIcon;
+  modalCancel?: RenderableIcon;
+}
+
+export interface ChatbotTheme {
+  colors?: ChatbotThemeColors;
+  typography?: ChatbotThemeTypography;
+  layout?: ChatbotThemeLayout;
+  spacing?: ChatbotThemeSpacing;
+  radius?: ChatbotThemeRadius;
+  shadows?: ChatbotThemeShadows;
+  buttons?: ChatbotThemeButtons;
+  fab?: ChatbotThemeFab;
+  icons?: ChatbotThemeIcons;
+  variables?: Record<string, ThemeValue>;
 }
 export interface ChatMessage {
   id: string;
@@ -146,6 +383,7 @@ export interface ChatbotConfig {
   backgroundColor?: string;
   textColor?: string;
   borderRadius?: string;
+  theme?: ChatbotTheme;
 
   // Behavior
   position?: ChatbotPosition;
@@ -161,9 +399,9 @@ export interface ChatbotConfig {
   typingMessage?: string;
 
   // Icons
-  chatIcon?: string | HTMLElement;
-  botIcon?: string | HTMLElement;
-  userIcon?: string | HTMLElement;
+  chatIcon?: RenderableIcon;
+  botIcon?: RenderableIcon;
+  userIcon?: RenderableIcon;
   fontFamily?: string;
   //inputConfig
   inputConfig?: InputConfig;
@@ -212,6 +450,7 @@ export interface ChatbotAPI {
   resetSession(): void;
   destroy(): void;
   updateConfig(config: Partial<ChatbotConfig>): void;
+  resetTheme(): void;
   getSessionId(): string;
   isOnline(): boolean;
   getSyncStatus(): SyncStatusInfo;

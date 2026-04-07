@@ -2,6 +2,8 @@ type MessageType = "text" | "card" | "quick_replies" | "image" | "system" | "opt
 type StorageStrategy = "localStorage";
 type SyncStatus = "synced" | "pending" | "failed";
 type ChatbotPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
+type RenderableIconResult = string | Node | null | undefined;
+type RenderableIcon = string | Node | (() => RenderableIconResult);
 type MenuActionType = "redirect" | "call" | "email" | "custom";
 interface MenuActionContext {
     id: string;
@@ -12,7 +14,7 @@ interface MenuActionContext {
 }
 interface MenuItemConfig {
     id: string;
-    icon: string;
+    icon: RenderableIcon;
     text: string;
     action: MenuActionType;
     actionValue?: string;
@@ -35,6 +37,223 @@ interface InputConfig {
     placeholder?: string;
     phoneConfig?: PhoneInputConfig;
     menu?: InputMenuConfig;
+}
+type ThemeValue = string | number;
+type ThemeScalar = string | number;
+interface ChatbotThemeColors {
+    primary?: ThemeValue;
+    secondary?: ThemeValue;
+    panelBackground?: ThemeValue;
+    bodyBackground?: ThemeValue;
+    footerBackground?: ThemeValue;
+    headerBackground?: ThemeValue;
+    headerText?: ThemeValue;
+    headerSubtext?: ThemeValue;
+    headerAvatarBackground?: ThemeValue;
+    headerActionBackground?: ThemeValue;
+    headerActionHoverBackground?: ThemeValue;
+    textPrimary?: ThemeValue;
+    textSecondary?: ThemeValue;
+    assistantBubbleBackground?: ThemeValue;
+    assistantBubbleText?: ThemeValue;
+    userBubbleBackground?: ThemeValue;
+    userBubbleText?: ThemeValue;
+    inputBackground?: ThemeValue;
+    inputText?: ThemeValue;
+    inputPlaceholder?: ThemeValue;
+    borderColor?: ThemeValue;
+    fabBackground?: ThemeValue;
+    fabText?: ThemeValue;
+    optionBackground?: ThemeValue;
+    optionText?: ThemeValue;
+    menuBackground?: ThemeValue;
+    menuText?: ThemeValue;
+    menuBorderColor?: ThemeValue;
+    sendButtonBackground?: ThemeValue;
+    sendButtonText?: ThemeValue;
+    sendButtonDisabledBackground?: ThemeValue;
+    modalBackground?: ThemeValue;
+    modalTitleText?: ThemeValue;
+    modalText?: ThemeValue;
+    overlayBackground?: ThemeValue;
+    resetButtonBackground?: ThemeValue;
+    resetButtonText?: ThemeValue;
+    resetButtonBorder?: ThemeValue;
+    cancelButtonBackground?: ThemeValue;
+    cancelButtonText?: ThemeValue;
+    cancelButtonBorder?: ThemeValue;
+    success?: ThemeValue;
+    error?: ThemeValue;
+    warning?: ThemeValue;
+    scrollbarThumb?: ThemeValue;
+    scrollbarThumbHover?: ThemeValue;
+}
+interface ChatbotThemeTypography {
+    fontFamily?: ThemeValue;
+    titleSize?: ThemeValue;
+    subtitleSize?: ThemeValue;
+    messageSize?: ThemeValue;
+    inputSize?: ThemeValue;
+    optionSize?: ThemeValue;
+    captionSize?: ThemeValue;
+    titleWeight?: ThemeValue;
+    subtitleWeight?: ThemeValue;
+    messageWeight?: ThemeValue;
+    lineHeight?: ThemeValue;
+}
+interface ChatbotThemeLayout {
+    panelWidth?: ThemeValue;
+    panelHeight?: ThemeValue;
+    panelMaxWidth?: ThemeValue;
+    panelMaxHeight?: ThemeValue;
+    mobilePanelWidth?: ThemeValue;
+    mobilePanelHeight?: ThemeValue;
+    mobilePanelMaxWidth?: ThemeValue;
+    mobilePanelMaxHeight?: ThemeValue;
+    fabSize?: ThemeValue;
+    mobileFabSize?: ThemeValue;
+    fabWaveSize?: ThemeValue;
+    fabBorderWidth?: ThemeValue;
+    headerAvatarSize?: ThemeValue;
+    headerActionSize?: ThemeValue;
+    botAvatarSize?: ThemeValue;
+    sendButtonSize?: ThemeValue;
+    menuToggleSize?: ThemeValue;
+    menuWidth?: ThemeValue;
+    countryDropdownWidth?: ThemeValue;
+    modalWidth?: ThemeValue;
+    messageMaxWidth?: ThemeValue;
+    mobileMessageMaxWidth?: ThemeValue;
+    optionMinWidth?: ThemeValue;
+}
+interface ChatbotThemeSpacing {
+    headerPadding?: ThemeValue;
+    bodyPadding?: ThemeValue;
+    mobileBodyPadding?: ThemeValue;
+    footerPadding?: ThemeValue;
+    bubblePadding?: ThemeValue;
+    optionPadding?: ThemeValue;
+    inputPaddingX?: ThemeValue;
+    menuPadding?: ThemeValue;
+    menuItemPadding?: ThemeValue;
+    modalPadding?: ThemeValue;
+    countryPickerPadding?: ThemeValue;
+    countryItemPadding?: ThemeValue;
+    headerGap?: ThemeValue;
+    bodyGap?: ThemeValue;
+    messageGap?: ThemeValue;
+    optionGap?: ThemeValue;
+}
+interface ChatbotThemeRadius {
+    panel?: ThemeValue;
+    fab?: ThemeValue;
+    bubble?: ThemeValue;
+    bubbleTail?: ThemeValue;
+    input?: ThemeValue;
+    button?: ThemeValue;
+    option?: ThemeValue;
+    menu?: ThemeValue;
+    modal?: ThemeValue;
+    headerAction?: ThemeValue;
+}
+interface ChatbotThemeShadows {
+    panel?: ThemeValue;
+    header?: ThemeValue;
+    fab?: ThemeValue;
+    fabHover?: ThemeValue;
+    assistantBubble?: ThemeValue;
+    userBubble?: ThemeValue;
+    option?: ThemeValue;
+    optionHover?: ThemeValue;
+    input?: ThemeValue;
+    inputFocus?: ThemeValue;
+    sendButton?: ThemeValue;
+    menu?: ThemeValue;
+    dropdown?: ThemeValue;
+    modal?: ThemeValue;
+}
+interface ChatbotThemeButtonStyle {
+    background?: ThemeValue;
+    text?: ThemeValue;
+    borderColor?: ThemeValue;
+    hoverBackground?: ThemeValue;
+    hoverText?: ThemeValue;
+    hoverBorderColor?: ThemeValue;
+    disabledBackground?: ThemeValue;
+    disabledText?: ThemeValue;
+    disabledBorderColor?: ThemeValue;
+}
+interface ChatbotThemeButtons {
+    fab?: ChatbotThemeButtonStyle;
+    send?: ChatbotThemeButtonStyle;
+    menuToggle?: ChatbotThemeButtonStyle;
+    close?: ChatbotThemeButtonStyle;
+    headerReset?: ChatbotThemeButtonStyle;
+    multiConfirm?: ChatbotThemeButtonStyle;
+    modalReset?: ChatbotThemeButtonStyle;
+    modalCancel?: ChatbotThemeButtonStyle;
+}
+interface ChatbotThemeFabWave {
+    enabled?: boolean;
+    color?: ThemeValue;
+    size?: ThemeValue;
+    opacity?: ThemeScalar;
+    duration?: ThemeScalar;
+}
+interface ChatbotThemeFabStatusDot {
+    enabled?: boolean;
+    onlineColor?: ThemeValue;
+    offlineColor?: ThemeValue;
+    size?: ThemeValue;
+    top?: ThemeValue;
+    left?: ThemeValue;
+    borderColor?: ThemeValue;
+    borderWidth?: ThemeValue;
+    shadow?: ThemeValue;
+}
+interface ChatbotThemeFab {
+    icon?: RenderableIcon;
+    iconSize?: ThemeValue;
+    iconColor?: ThemeValue;
+    iconBackground?: ThemeValue;
+    iconPadding?: ThemeValue;
+    iconRadius?: ThemeValue;
+    background?: ThemeValue;
+    text?: ThemeValue;
+    borderColor?: ThemeValue;
+    hoverBackground?: ThemeValue;
+    hoverText?: ThemeValue;
+    hoverBorderColor?: ThemeValue;
+    size?: ThemeValue;
+    mobileSize?: ThemeValue;
+    borderWidth?: ThemeValue;
+    radius?: ThemeValue;
+    shadow?: ThemeValue;
+    hoverShadow?: ThemeValue;
+    wave?: ChatbotThemeFabWave;
+    statusDot?: ChatbotThemeFabStatusDot;
+}
+interface ChatbotThemeIcons {
+    send?: RenderableIcon;
+    close?: RenderableIcon;
+    headerReset?: RenderableIcon;
+    menu?: RenderableIcon;
+    menuClose?: RenderableIcon;
+    multiConfirm?: RenderableIcon;
+    modalReset?: RenderableIcon;
+    modalCancel?: RenderableIcon;
+}
+interface ChatbotTheme {
+    colors?: ChatbotThemeColors;
+    typography?: ChatbotThemeTypography;
+    layout?: ChatbotThemeLayout;
+    spacing?: ChatbotThemeSpacing;
+    radius?: ChatbotThemeRadius;
+    shadows?: ChatbotThemeShadows;
+    buttons?: ChatbotThemeButtons;
+    fab?: ChatbotThemeFab;
+    icons?: ChatbotThemeIcons;
+    variables?: Record<string, ThemeValue>;
 }
 interface ChatMessage {
     id: string;
@@ -87,6 +306,7 @@ interface ChatbotConfig {
     backgroundColor?: string;
     textColor?: string;
     borderRadius?: string;
+    theme?: ChatbotTheme;
     position?: ChatbotPosition;
     autoOpen?: boolean;
     persistMessages?: boolean;
@@ -96,9 +316,9 @@ interface ChatbotConfig {
     welcomeMessage?: string;
     errorMessage?: string;
     typingMessage?: string;
-    chatIcon?: string | HTMLElement;
-    botIcon?: string | HTMLElement;
-    userIcon?: string | HTMLElement;
+    chatIcon?: RenderableIcon;
+    botIcon?: RenderableIcon;
+    userIcon?: RenderableIcon;
     fontFamily?: string;
     inputConfig?: InputConfig;
     bot_id?: string;
@@ -358,6 +578,10 @@ declare class Chatbot {
      */
     updateConfig(cfg: Partial<ChatbotConfig>): void;
     /**
+     * Reset theme-related configuration back to built-in defaults
+     */
+    resetTheme(): void;
+    /**
      * Get current configuration
      */
     getConfig(): ChatbotConfig;
@@ -391,9 +615,6 @@ declare class Chatbot {
     static getInstance(): Chatbot | null;
 }
 
-/**
- * Deep merge objects with proper typing
- */
 declare function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T;
 declare function generateId(): string;
 declare function sanitizeHtml(input: string): string;
@@ -516,7 +737,8 @@ declare class ChatbotElement extends HTMLElement {
     clearMessages(): void;
     resetSession(): void;
     updateConfig(config: Partial<ChatbotConfig>): void;
+    resetTheme(): void;
 }
 
 export { Chatbot, ChatbotElement, MessageService, StorageService, autoOpenChatbotTTL, deepMerge, Chatbot as default, formatTimestamp, generateId, generateMessageId, generateSessionId, sanitizeHtml };
-export type { AutoOpenChatbotTTLBot, AutoOpenChatbotTTLOptions, ChatMessage, ChatbotConfig, ChatbotState, MessageType, StorageStrategy, SyncStatus, SyncStatusInfo };
+export type { AutoOpenChatbotTTLBot, AutoOpenChatbotTTLOptions, ChatMessage, ChatbotConfig, ChatbotState, ChatbotTheme, ChatbotThemeButtonStyle, ChatbotThemeButtons, ChatbotThemeColors, ChatbotThemeFab, ChatbotThemeFabStatusDot, ChatbotThemeFabWave, ChatbotThemeIcons, ChatbotThemeLayout, ChatbotThemeRadius, ChatbotThemeShadows, ChatbotThemeSpacing, ChatbotThemeTypography, MessageType, RenderableIcon, StorageStrategy, SyncStatus, SyncStatusInfo };

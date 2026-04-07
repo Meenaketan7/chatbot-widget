@@ -5,9 +5,15 @@ import type {
 } from "../core/types";
 import { attachMenuListeners } from "./menu.ui";
 import { createMessageRenderer } from "./ui.messages";
+import {
+  renderControlIcon,
+  renderOptionalControlIcon,
+} from "./ui.icons";
 import { attachPhonePicker } from "./ui.phone";
+import { applyThemeVariables } from "./ui.theme";
 import {
   renderInputHTML,
+  renderFabHTML,
   renderUIHTML,
   resolveDefaultPhoneSelection,
 } from "./ui.templates";
@@ -50,6 +56,36 @@ export function createUI(
   let inputWrapper = container.querySelector(".cw-input") as HTMLElement;
   let input = inputWrapper.querySelector("input") as HTMLInputElement;
   let sendBtn = inputWrapper.querySelector(".cw-send") as HTMLButtonElement;
+
+  const syncControlMarkup = () => {
+    resetBtn.innerHTML = renderControlIcon(
+      config,
+      "headerReset",
+      "cw-control-icon cw-reset-icon",
+    );
+    closeBtn.innerHTML = renderControlIcon(
+      config,
+      "close",
+      "cw-control-icon cw-close-icon",
+    );
+    sendBtn.innerHTML = renderControlIcon(
+      config,
+      "send",
+      "cw-control-icon cw-send-icon",
+    );
+
+    const menuToggleBtn = inputWrapper.querySelector(
+      ".menu-toggle-btn",
+    ) as HTMLButtonElement | null;
+    if (menuToggleBtn) {
+      menuToggleBtn.innerHTML = `
+        ${renderControlIcon(config, "menu", "cw-control-icon menu-icon-sb menu-toggle-icon")}
+        ${renderControlIcon(config, "menuClose", "cw-control-icon menu-icon-sb menu-close-icon icon-hidden")}
+      `;
+    }
+
+    fab.innerHTML = renderFabHTML(config, state.isOnline);
+  };
 
   const scrollToBottom = (instant = false) => {
     if (panel.style.display === "none") return;
@@ -167,6 +203,7 @@ export function createUI(
 
     previousInputWrapper?.replaceWith(nextInputWrapper);
     syncInputRefs(footer);
+    syncControlMarkup();
     bindInputEvents();
     attachMenuListeners(
       container,
@@ -204,8 +241,8 @@ export function createUI(
       <h2>Reset Chat</h2>
       <p>Confirm reset?<br>This will create a new session</p>
       <div class="cw-reset-actions">
-        <button class="cw-btn-cancel">Cancel</button>
-        <button class="cw-btn-reset">Reset</button>
+        <button class="cw-btn-cancel">${renderOptionalControlIcon(config, "modalCancel", "cw-control-icon cw-button-icon")}<span class="cw-button-label">Cancel</span></button>
+        <button class="cw-btn-reset">${renderOptionalControlIcon(config, "modalReset", "cw-control-icon cw-button-icon")}<span class="cw-button-label">Reset</span></button>
       </div>
     `;
 
@@ -228,6 +265,7 @@ export function createUI(
   bindInputEvents();
   setInputDisabledState(state.inputDisabled);
   attachMenuListeners(container, config.inputConfig?.menu, handlers);
+  syncControlMarkup();
 
   fab.addEventListener("click", () => {
     handlers.onToggle();
@@ -267,22 +305,8 @@ export function createUI(
     updateConfig(newConfig) {
       Object.assign(config, newConfig);
       const element = root.querySelector(".chatbot-container") as HTMLElement;
-
-      if (newConfig.primaryColor) {
-        element.style.setProperty("--primary", newConfig.primaryColor);
-      }
-      if (newConfig.backgroundColor) {
-        element.style.setProperty("--bg", newConfig.backgroundColor);
-      }
-      if (newConfig.secondaryColor) {
-        element.style.setProperty("--accent", newConfig.secondaryColor);
-      }
-      if (newConfig.borderRadius) {
-        element.style.setProperty("--radius", newConfig.borderRadius);
-      }
-      if (newConfig.fontFamily) {
-        element.style.setProperty("--font-family", newConfig.fontFamily);
-      }
+      applyThemeVariables(element, config);
+      syncControlMarkup();
     },
 
     focusInput() {

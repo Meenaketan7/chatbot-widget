@@ -1,7 +1,47 @@
+const DEFAULT_CONTROL_ICONS = {
+    send: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><path fill="currentColor" fill-rule="evenodd" d="M2.345 2.245a1 1 0 0 1 1.102-.14l18 9a1 1 0 0 1 0 1.79l-18 9a1 1 0 0 1-1.396-1.211L4.613 13H10a1 1 0 1 0 0-2H4.613L2.05 3.316a1 1 0 0 1 .294-1.071z" clip-rule="evenodd"/></svg>`,
+    close: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+    headerReset: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 3v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    menu: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><rect x="3" y="5" width="18" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="10.5" width="18" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="16" width="18" height="3" rx="1.5" fill="currentColor"/></svg>`,
+    menuClose: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+    multiConfirm: "",
+    modalReset: "",
+    modalCancel: "",
+};
+const isRenderableNode = (value) => typeof Node !== "undefined" && value instanceof Node;
+function renderIconMarkup(icon, fallback = "") {
+    const resolvedIcon = typeof icon === "function" ? icon() : icon;
+    if (resolvedIcon === undefined || resolvedIcon === null) {
+        return fallback;
+    }
+    if (typeof resolvedIcon === "string") {
+        return resolvedIcon;
+    }
+    if (isRenderableNode(resolvedIcon)) {
+        const container = document.createElement("div");
+        container.appendChild(resolvedIcon.cloneNode(true));
+        return container.innerHTML;
+    }
+    return fallback;
+}
+function resolveControlIcon(config, key) {
+    return config.theme?.icons?.[key] ?? DEFAULT_CONTROL_ICONS[key];
+}
+function renderControlIcon(config, key, className) {
+    return `<span class="${className}" aria-hidden="true">${renderIconMarkup(resolveControlIcon(config, key))}</span>`;
+}
+function renderOptionalControlIcon(config, key, className) {
+    const icon = resolveControlIcon(config, key);
+    const markup = renderIconMarkup(icon);
+    if (!markup)
+        return "";
+    return `<span class="${className}" aria-hidden="true">${markup}</span>`;
+}
+
 /**
  * Render menu HTML based on configuration (SmartBot Style)
  */
-function renderMenuHTML(menuConfig, currentInputType) {
+function renderMenuHTML(config, menuConfig, currentInputType) {
     if (!menuConfig?.enabled ||
         !menuConfig.items ||
         currentInputType === "phone") {
@@ -13,8 +53,8 @@ function renderMenuHTML(menuConfig, currentInputType) {
     let menuHTML = `
     <div class="cw-menu-container">
       <button class="menu-toggle-btn" type="button" aria-label="Menu" aria-expanded="false">
-        <img class="menu-icon-sb menu-toggle-icon" src="https://custpostimages.s3.ap-south-1.amazonaws.com/sb_images/headder_menu_icon_new_sb.svg" alt="Menu">
-        <img class="menu-icon-sb menu-close-icon icon-hidden" src="https://s3.ap-south-1.amazonaws.com/custpostimages/ss_images/close_modal.png" alt="Close">
+        ${renderControlIcon(config, "menu", "cw-control-icon menu-icon-sb menu-toggle-icon")}
+        ${renderControlIcon(config, "menuClose", "cw-control-icon menu-icon-sb menu-close-icon icon-hidden")}
       </button>
 
       <div class="menu-options-div">
@@ -22,7 +62,7 @@ function renderMenuHTML(menuConfig, currentInputType) {
     menuConfig.items.forEach((item, index) => {
         const isLast = index === menuConfig.items.length - 1;
         const itemIcon = item.icon
-            ? `<div class="menu-icon-smatest">${item.icon}</div>`
+            ? `<div class="menu-icon-smatest">${renderIconMarkup(item.icon)}</div>`
             : "";
         const itemContent = `
       ${itemIcon}
@@ -193,13 +233,21 @@ async function executeCustomMenuAction(menuConfig, menuId, partialContext = {}) 
 /**
  * Deep merge objects with proper typing
  */
+function isPlainObject(value) {
+    if (!value || typeof value !== "object")
+        return false;
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+}
 function deepMerge(target, source) {
     const result = { ...target };
     for (const key in source) {
-        if (source[key] &&
-            typeof source[key] === "object" &&
-            !Array.isArray(source[key])) {
-            result[key] = deepMerge(result[key] || {}, source[key]);
+        if (isPlainObject(source[key]) &&
+            isPlainObject(result[key])) {
+            result[key] = deepMerge(result[key], source[key]);
+        }
+        else if (isPlainObject(source[key])) {
+            result[key] = deepMerge({}, source[key]);
         }
         else if (source[key] !== undefined) {
             result[key] = source[key];
@@ -353,7 +401,7 @@ function createMessageRenderer(options) {
             const confirmBtn = document.createElement("button");
             confirmBtn.type = "button";
             confirmBtn.className = "cw-multi-confirm";
-            confirmBtn.textContent = confirmButtonText;
+            confirmBtn.innerHTML = `${renderOptionalControlIcon(config, "multiConfirm", "cw-control-icon cw-button-icon")}<span class="cw-button-label">${sanitizeHtml(confirmButtonText)}</span>`;
             const syncConfirmState = () => {
                 if (!allowMultiple)
                     return;
@@ -488,8 +536,7 @@ function createMessageRenderer(options) {
         typingGroup.className = "cw-message-group assistant";
         const avatar = document.createElement("div");
         avatar.className = "cw-bot-avatar";
-        avatar.innerHTML =
-            typeof config.botIcon === "string" ? config.botIcon : "🤖";
+        avatar.innerHTML = renderIconMarkup(config.botIcon, "🤖");
         typingGroup.appendChild(avatar);
         const typingMessage = document.createElement("div");
         typingMessage.className = "cw-msg assistant";
@@ -506,8 +553,7 @@ function createMessageRenderer(options) {
             if (group[0].role === "assistant") {
                 const avatar = document.createElement("div");
                 avatar.className = "cw-bot-avatar";
-                avatar.innerHTML =
-                    typeof config.botIcon === "string" ? config.botIcon : "🤖";
+                avatar.innerHTML = renderIconMarkup(config.botIcon, "🤖");
                 groupContainer.appendChild(avatar);
             }
             group.forEach((message, index) => {
@@ -624,6 +670,267 @@ function attachPhonePicker(options) {
             itemListeners.forEach(({ item, listener }) => item.removeEventListener("click", listener));
         },
     };
+}
+
+const toCssValue = (value, fallback) => {
+    if (value === undefined || value === null || value === "") {
+        return fallback;
+    }
+    return typeof value === "number" ? `${value}px` : String(value);
+};
+const toScalarValue = (value, fallback) => {
+    if (value === undefined || value === null || value === "") {
+        return fallback;
+    }
+    return String(value);
+};
+const toDurationValue = (value, fallback) => {
+    if (value === undefined || value === null || value === "") {
+        return fallback;
+    }
+    return typeof value === "number" ? `${value}ms` : String(value);
+};
+function resolveThemeVariables(config) {
+    const theme = config.theme || {};
+    const colors = theme.colors || {};
+    const typography = theme.typography || {};
+    const layout = theme.layout || {};
+    const spacing = theme.spacing || {};
+    const radius = theme.radius || {};
+    const shadows = theme.shadows || {};
+    const buttons = theme.buttons || {};
+    const fab = theme.fab || {};
+    const fabWave = fab.wave || {};
+    const fabStatusDot = fab.statusDot || {};
+    const resolveButtonVar = (value, fallback) => toCssValue(value, fallback);
+    const variables = {
+        "--primary": toCssValue(colors.primary, config.primaryColor || "#8b5cf6"),
+        "--accent": toCssValue(colors.secondary, config.secondaryColor || "#6366f1"),
+        "--bg": toCssValue(colors.panelBackground, config.backgroundColor || "#ffffff"),
+        "--radius": toCssValue(radius.panel, config.borderRadius || "16px"),
+        "--font-family": toCssValue(typography.fontFamily, config.fontFamily ||
+            'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'),
+        "--text-primary": toCssValue(colors.textPrimary, config.textColor || "#455a64"),
+        "--text-secondary": toCssValue(colors.textSecondary, "#576e93"),
+        "--body-bg": toCssValue(colors.bodyBackground, "#f8f9fb"),
+        "--bubble-bg": toCssValue(colors.assistantBubbleBackground, "#ffffff"),
+        "--bubble-text": toCssValue(colors.assistantBubbleText, config.textColor || "#455a64"),
+        "--user-bubble-bg": toCssValue(colors.userBubbleBackground, colors.primary ? toCssValue(colors.primary, "#8b5cf6") : "#8b5cf6"),
+        "--user-bubble-text": toCssValue(colors.userBubbleText, "#ffffff"),
+        "--input-bg": toCssValue(colors.inputBackground, "#f8f9fb"),
+        "--input-text": toCssValue(colors.inputText, config.textColor || "#455a64"),
+        "--input-placeholder": toCssValue(colors.inputPlaceholder, "#9ca3af"),
+        "--footer-bg": toCssValue(colors.footerBackground, "#ffffff"),
+        "--border-color": toCssValue(colors.borderColor, "#e5e7eb"),
+        "--header-bg": toCssValue(colors.headerBackground, colors.primary ? toCssValue(colors.primary, "#8b5cf6") : "#8b5cf6"),
+        "--header-text": toCssValue(colors.headerText, "#ffffff"),
+        "--header-subtext": toCssValue(colors.headerSubtext, "rgba(255,255,255,0.9)"),
+        "--header-avatar-bg": toCssValue(colors.headerAvatarBackground, "rgba(255,255,255,0.15)"),
+        "--header-action-bg": toCssValue(colors.headerActionBackground, "rgba(255,255,255,0.15)"),
+        "--header-action-hover-bg": toCssValue(colors.headerActionHoverBackground, "rgba(255,255,255,0.25)"),
+        "--fab-bg": toCssValue(fab.background ?? buttons.fab?.background ?? colors.fabBackground, colors.primary ? toCssValue(colors.primary, "#8b5cf6") : "#8b5cf6"),
+        "--fab-text": toCssValue(fab.text ?? buttons.fab?.text ?? colors.fabText, "#ffffff"),
+        "--fab-border-color": toCssValue(fab.borderColor ?? buttons.fab?.borderColor, fab.background
+            ? toCssValue(fab.background, "#8b5cf6")
+            : buttons.fab?.background
+                ? toCssValue(buttons.fab.background, "#8b5cf6")
+                : colors.fabBackground
+                    ? toCssValue(colors.fabBackground, "#8b5cf6")
+                    : colors.primary
+                        ? toCssValue(colors.primary, "#8b5cf6")
+                        : "#8b5cf6"),
+        "--fab-hover-bg": resolveButtonVar(fab.hoverBackground ?? buttons.fab?.hoverBackground, toCssValue(fab.background ?? buttons.fab?.background ?? colors.fabBackground, colors.primary ? toCssValue(colors.primary, "#8b5cf6") : "#8b5cf6")),
+        "--fab-hover-text": resolveButtonVar(fab.hoverText ?? buttons.fab?.hoverText, toCssValue(fab.text ?? buttons.fab?.text ?? colors.fabText, "#ffffff")),
+        "--fab-hover-border-color": resolveButtonVar(fab.hoverBorderColor ?? buttons.fab?.hoverBorderColor, toCssValue(fab.borderColor ?? buttons.fab?.borderColor, fab.background
+            ? toCssValue(fab.background, "#8b5cf6")
+            : buttons.fab?.background
+                ? toCssValue(buttons.fab.background, "#8b5cf6")
+                : colors.fabBackground
+                    ? toCssValue(colors.fabBackground, "#8b5cf6")
+                    : colors.primary
+                        ? toCssValue(colors.primary, "#8b5cf6")
+                        : "#8b5cf6")),
+        "--fab-icon-size": toCssValue(fab.iconSize, "24px"),
+        "--fab-icon-color": toCssValue(fab.iconColor, toCssValue(fab.text ?? buttons.fab?.text ?? colors.fabText, "#ffffff")),
+        "--fab-icon-bg": toCssValue(fab.iconBackground, "transparent"),
+        "--fab-icon-padding": toCssValue(fab.iconPadding, "0px"),
+        "--fab-icon-radius": toCssValue(fab.iconRadius, "0px"),
+        "--fab-wave-color": toCssValue(fabWave.color ??
+            fab.background ??
+            buttons.fab?.background ??
+            colors.fabBackground, colors.primary ? toCssValue(colors.primary, "#8b5cf6") : "#8b5cf6"),
+        "--fab-wave-opacity": toScalarValue(fabWave.opacity, "0.7"),
+        "--fab-wave-duration": toDurationValue(fabWave.duration, "1.3s"),
+        "--fab-status-dot-size": toCssValue(fabStatusDot.size, "16px"),
+        "--fab-status-dot-top": toCssValue(fabStatusDot.top, "0px"),
+        "--fab-status-dot-left": toCssValue(fabStatusDot.left, "0px"),
+        "--fab-status-dot-online": toCssValue(fabStatusDot.onlineColor, "#22c55e"),
+        "--fab-status-dot-offline": toCssValue(fabStatusDot.offlineColor, "#ef4444"),
+        "--fab-status-dot-border-color": toCssValue(fabStatusDot.borderColor, "transparent"),
+        "--fab-status-dot-border-width": toCssValue(fabStatusDot.borderWidth, "0px"),
+        "--fab-status-dot-shadow": toCssValue(fabStatusDot.shadow, "0 1px 3px rgba(44, 44, 44, 0.13)"),
+        "--option-bg": toCssValue(colors.optionBackground, colors.primary ? toCssValue(colors.primary, "#8b5cf6") : "#8b5cf6"),
+        "--option-text": toCssValue(colors.optionText, "#ffffff"),
+        "--menu-bg": toCssValue(colors.menuBackground, "#ffffff"),
+        "--menu-text": toCssValue(colors.menuText, "#455a64"),
+        "--menu-border-color": toCssValue(colors.menuBorderColor, "#e5e7eb"),
+        "--send-button-bg": toCssValue(buttons.send?.background ?? colors.sendButtonBackground, colors.primary ? toCssValue(colors.primary, "#8b5cf6") : "#8b5cf6"),
+        "--send-button-text": toCssValue(buttons.send?.text ?? colors.sendButtonText, "#ffffff"),
+        "--send-button-border": toCssValue(buttons.send?.borderColor, "transparent"),
+        "--send-button-hover-bg": resolveButtonVar(buttons.send?.hoverBackground, toCssValue(buttons.send?.background ?? colors.sendButtonBackground, colors.primary ? toCssValue(colors.primary, "#8b5cf6") : "#8b5cf6")),
+        "--send-button-hover-text": resolveButtonVar(buttons.send?.hoverText, toCssValue(buttons.send?.text ?? colors.sendButtonText, "#ffffff")),
+        "--send-button-hover-border": resolveButtonVar(buttons.send?.hoverBorderColor, toCssValue(buttons.send?.borderColor, "transparent")),
+        "--send-button-disabled-bg": toCssValue(buttons.send?.disabledBackground ?? colors.sendButtonDisabledBackground, "#d1d5db"),
+        "--send-button-disabled-text": toCssValue(buttons.send?.disabledText, "#ffffff"),
+        "--send-button-disabled-border": toCssValue(buttons.send?.disabledBorderColor, "transparent"),
+        "--modal-bg": toCssValue(colors.modalBackground, "#ffffff"),
+        "--modal-title-text": toCssValue(colors.modalTitleText, config.textColor || "#455a64"),
+        "--modal-text": toCssValue(colors.modalText, "#576e93"),
+        "--overlay-bg": toCssValue(colors.overlayBackground, "rgba(0,0,0,0.6)"),
+        "--reset-button-bg": toCssValue(buttons.modalReset?.background ?? colors.resetButtonBackground, "#000000"),
+        "--reset-button-text": toCssValue(buttons.modalReset?.text ?? colors.resetButtonText, "#ffffff"),
+        "--reset-button-border": toCssValue(buttons.modalReset?.borderColor ?? colors.resetButtonBorder, "#000000"),
+        "--reset-button-hover-bg": resolveButtonVar(buttons.modalReset?.hoverBackground, toCssValue(buttons.modalReset?.background ?? colors.resetButtonBackground, "#000000")),
+        "--reset-button-hover-text": resolveButtonVar(buttons.modalReset?.hoverText, toCssValue(buttons.modalReset?.text ?? colors.resetButtonText, "#ffffff")),
+        "--reset-button-hover-border": resolveButtonVar(buttons.modalReset?.hoverBorderColor, toCssValue(buttons.modalReset?.borderColor ?? colors.resetButtonBorder, "#000000")),
+        "--cancel-button-bg": toCssValue(buttons.modalCancel?.background ?? colors.cancelButtonBackground, "#ffffff"),
+        "--cancel-button-text": toCssValue(buttons.modalCancel?.text ?? colors.cancelButtonText, config.textColor || "#455a64"),
+        "--cancel-button-border": toCssValue(buttons.modalCancel?.borderColor ?? colors.cancelButtonBorder, "#d1d5db"),
+        "--cancel-button-hover-bg": resolveButtonVar(buttons.modalCancel?.hoverBackground, toCssValue(buttons.modalCancel?.background ?? colors.cancelButtonBackground, "#ffffff")),
+        "--cancel-button-hover-text": resolveButtonVar(buttons.modalCancel?.hoverText, toCssValue(buttons.modalCancel?.text ?? colors.cancelButtonText, config.textColor || "#455a64")),
+        "--cancel-button-hover-border": resolveButtonVar(buttons.modalCancel?.hoverBorderColor, toCssValue(buttons.modalCancel?.borderColor ?? colors.cancelButtonBorder, "#d1d5db")),
+        "--header-close-bg": toCssValue(buttons.close?.background ?? colors.headerActionBackground, "rgba(255,255,255,0.15)"),
+        "--header-close-text": toCssValue(buttons.close?.text ?? colors.headerText, "#ffffff"),
+        "--header-close-border": toCssValue(buttons.close?.borderColor, "transparent"),
+        "--header-close-hover-bg": resolveButtonVar(buttons.close?.hoverBackground, toCssValue(buttons.close?.background ?? colors.headerActionHoverBackground, "rgba(255,255,255,0.25)")),
+        "--header-close-hover-text": resolveButtonVar(buttons.close?.hoverText, toCssValue(buttons.close?.text ?? colors.headerText, "#ffffff")),
+        "--header-close-hover-border": resolveButtonVar(buttons.close?.hoverBorderColor, toCssValue(buttons.close?.borderColor, "transparent")),
+        "--header-reset-bg": toCssValue(buttons.headerReset?.background ?? colors.headerActionBackground, "rgba(255,255,255,0.15)"),
+        "--header-reset-text": toCssValue(buttons.headerReset?.text ?? colors.headerText, "#ffffff"),
+        "--header-reset-border": toCssValue(buttons.headerReset?.borderColor, "transparent"),
+        "--header-reset-hover-bg": resolveButtonVar(buttons.headerReset?.hoverBackground, toCssValue(buttons.headerReset?.background ?? colors.headerActionHoverBackground, "rgba(255,255,255,0.25)")),
+        "--header-reset-hover-text": resolveButtonVar(buttons.headerReset?.hoverText, toCssValue(buttons.headerReset?.text ?? colors.headerText, "#ffffff")),
+        "--header-reset-hover-border": resolveButtonVar(buttons.headerReset?.hoverBorderColor, toCssValue(buttons.headerReset?.borderColor, "transparent")),
+        "--menu-toggle-bg": toCssValue(buttons.menuToggle?.background, "transparent"),
+        "--menu-toggle-text": toCssValue(buttons.menuToggle?.text ?? colors.menuText, "#455a64"),
+        "--menu-toggle-border": toCssValue(buttons.menuToggle?.borderColor, "transparent"),
+        "--menu-toggle-hover-bg": resolveButtonVar(buttons.menuToggle?.hoverBackground, "rgba(0,0,0,0.06)"),
+        "--menu-toggle-hover-text": resolveButtonVar(buttons.menuToggle?.hoverText, toCssValue(buttons.menuToggle?.text ?? colors.menuText, "#455a64")),
+        "--menu-toggle-hover-border": resolveButtonVar(buttons.menuToggle?.hoverBorderColor, toCssValue(buttons.menuToggle?.borderColor, "transparent")),
+        "--multi-confirm-bg": toCssValue(buttons.multiConfirm?.background, "transparent"),
+        "--multi-confirm-text": toCssValue(buttons.multiConfirm?.text, toCssValue(colors.primary, "#8b5cf6")),
+        "--multi-confirm-border": toCssValue(buttons.multiConfirm?.borderColor, toCssValue(colors.primary, "#8b5cf6")),
+        "--multi-confirm-hover-bg": resolveButtonVar(buttons.multiConfirm?.hoverBackground, toCssValue(colors.primary, "#8b5cf6")),
+        "--multi-confirm-hover-text": resolveButtonVar(buttons.multiConfirm?.hoverText, "#ffffff"),
+        "--multi-confirm-hover-border": resolveButtonVar(buttons.multiConfirm?.hoverBorderColor, toCssValue(colors.primary, "#8b5cf6")),
+        "--multi-confirm-disabled-bg": toCssValue(buttons.multiConfirm?.disabledBackground, "transparent"),
+        "--multi-confirm-disabled-text": toCssValue(buttons.multiConfirm?.disabledText, toCssValue(colors.primary, "#8b5cf6")),
+        "--multi-confirm-disabled-border": toCssValue(buttons.multiConfirm?.disabledBorderColor, toCssValue(colors.primary, "#8b5cf6")),
+        "--success-color": toCssValue(colors.success, "#22c55e"),
+        "--error-color": toCssValue(colors.error, "#ef4444"),
+        "--warning-color": toCssValue(colors.warning, "#f59e0b"),
+        "--scrollbar-thumb": toCssValue(colors.scrollbarThumb, "rgba(139,92,246,0.2)"),
+        "--scrollbar-thumb-hover": toCssValue(colors.scrollbarThumbHover, "rgba(139,92,246,0.3)"),
+        "--panel-width": toCssValue(layout.panelWidth, "380px"),
+        "--panel-height": toCssValue(layout.panelHeight, "650px"),
+        "--panel-max-width": toCssValue(layout.panelMaxWidth, "calc(100vw - 40px)"),
+        "--panel-max-height": toCssValue(layout.panelMaxHeight, "85vh"),
+        "--mobile-panel-width": toCssValue(layout.mobilePanelWidth, "92%"),
+        "--mobile-panel-height": toCssValue(layout.mobilePanelHeight, "92vh"),
+        "--mobile-panel-max-width": toCssValue(layout.mobilePanelMaxWidth, "92%"),
+        "--mobile-panel-max-height": toCssValue(layout.mobilePanelMaxHeight, "92vh"),
+        "--mobile-panel-radius": toCssValue(radius.panel, config.borderRadius || "16px"),
+        "--fab-size": toCssValue(fab.size ?? layout.fabSize, "56px"),
+        "--mobile-fab-size": toCssValue(fab.mobileSize ?? layout.mobileFabSize, "54px"),
+        "--fab-wave-size": toCssValue(fabWave.size ?? layout.fabWaveSize, "64px"),
+        "--fab-border-width": toCssValue(fab.borderWidth ?? layout.fabBorderWidth, "3px"),
+        "--header-avatar-size": toCssValue(layout.headerAvatarSize, "38px"),
+        "--header-action-size": toCssValue(layout.headerActionSize, "32px"),
+        "--bot-avatar-size": toCssValue(layout.botAvatarSize, "22px"),
+        "--send-button-size": toCssValue(layout.sendButtonSize, "32px"),
+        "--menu-toggle-size": toCssValue(layout.menuToggleSize, "32px"),
+        "--menu-width": toCssValue(layout.menuWidth, "280px"),
+        "--country-dropdown-width": toCssValue(layout.countryDropdownWidth, "360px"),
+        "--modal-width": toCssValue(layout.modalWidth, "300px"),
+        "--message-max-width": toCssValue(layout.messageMaxWidth, "80%"),
+        "--mobile-message-max-width": toCssValue(layout.mobileMessageMaxWidth, "85%"),
+        "--option-min-width": toCssValue(layout.optionMinWidth, "30ch"),
+        "--header-padding": toCssValue(spacing.headerPadding, "12px 16px"),
+        "--body-padding": toCssValue(spacing.bodyPadding, "16px"),
+        "--mobile-body-padding": toCssValue(spacing.mobileBodyPadding, "14px"),
+        "--footer-padding": toCssValue(spacing.footerPadding, "12px 14px"),
+        "--bubble-padding": toCssValue(spacing.bubblePadding, "12px 16px"),
+        "--option-padding": toCssValue(spacing.optionPadding, "8px"),
+        "--input-padding-x": toCssValue(spacing.inputPaddingX, "12px"),
+        "--menu-padding": toCssValue(spacing.menuPadding, "15px"),
+        "--menu-item-padding": toCssValue(spacing.menuItemPadding, "10px"),
+        "--modal-padding": toCssValue(spacing.modalPadding, "24px"),
+        "--country-picker-padding": toCssValue(spacing.countryPickerPadding, "8px 10px"),
+        "--country-item-padding": toCssValue(spacing.countryItemPadding, "10px 14px"),
+        "--header-gap": toCssValue(spacing.headerGap, "12px"),
+        "--body-gap": toCssValue(spacing.bodyGap, "8px"),
+        "--message-gap": toCssValue(spacing.messageGap, "4px"),
+        "--option-gap": toCssValue(spacing.optionGap, "8px"),
+        "--panel-radius": toCssValue(radius.panel, config.borderRadius || "16px"),
+        "--fab-radius": toCssValue(fab.radius ?? radius.fab, "50%"),
+        "--bubble-radius": toCssValue(radius.bubble, "12px"),
+        "--bubble-tail-radius": toCssValue(radius.bubbleTail, "4px"),
+        "--input-radius": toCssValue(radius.input, "8px"),
+        "--button-radius": toCssValue(radius.button, "10px"),
+        "--option-radius": toCssValue(radius.option, "6px"),
+        "--menu-radius": toCssValue(radius.menu, "6px"),
+        "--modal-radius": toCssValue(radius.modal, "12px"),
+        "--header-action-radius": toCssValue(radius.headerAction, "6px"),
+        "--shadow": toCssValue(shadows.panel, "0 4px 20px rgba(0, 0, 0, 0.08)"),
+        "--header-shadow": toCssValue(shadows.header, "0 2px 8px rgba(0, 0, 0, 0.06)"),
+        "--fab-shadow": toCssValue(fab.shadow ?? shadows.fab, "0 4px 16px rgba(139, 92, 246, 0.4)"),
+        "--fab-hover-shadow": toCssValue(fab.hoverShadow ?? shadows.fabHover, "0 6px 20px rgba(139, 92, 246, 0.5)"),
+        "--assistant-bubble-shadow": toCssValue(shadows.assistantBubble, "0 1px 4px rgba(0, 0, 0, 0.04)"),
+        "--user-bubble-shadow": toCssValue(shadows.userBubble, "0 2px 8px rgba(139, 92, 246, 0.25)"),
+        "--option-shadow": toCssValue(shadows.option, "0 2px 6px rgba(139, 92, 246, 0.2)"),
+        "--option-hover-shadow": toCssValue(shadows.optionHover, "0 4px 12px rgba(139, 92, 246, 0.3)"),
+        "--input-shadow": toCssValue(shadows.input, "0 1px 3px rgba(0, 0, 0, 0.04)"),
+        "--input-focus-shadow": toCssValue(shadows.inputFocus, "0 0 0 3px rgba(139, 92, 246, 0.08)"),
+        "--send-button-shadow": toCssValue(shadows.sendButton, "0 2px 6px rgba(139, 92, 246, 0.25)"),
+        "--menu-shadow": toCssValue(shadows.menu, "0 3px 20px rgba(21, 38, 194, 0.3)"),
+        "--dropdown-shadow": toCssValue(shadows.dropdown, "0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06)"),
+        "--modal-shadow": toCssValue(shadows.modal, "0 10px 30px rgba(0, 0, 0, 0.2)"),
+        "--title-size": toCssValue(typography.titleSize, "14px"),
+        "--subtitle-size": toCssValue(typography.subtitleSize, "14px"),
+        "--message-size": toCssValue(typography.messageSize, "13px"),
+        "--input-size": toCssValue(typography.inputSize, "16px"),
+        "--option-size": toCssValue(typography.optionSize, "13px"),
+        "--caption-size": toCssValue(typography.captionSize, "12px"),
+        "--title-weight": toCssValue(typography.titleWeight, "600"),
+        "--subtitle-weight": toCssValue(typography.subtitleWeight, "500"),
+        "--message-weight": toCssValue(typography.messageWeight, "600"),
+        "--line-height": toCssValue(typography.lineHeight, "1.46"),
+    };
+    Object.entries(theme.variables || {}).forEach(([key, value]) => {
+        const normalizedKey = key.startsWith("--") ? key : `--${key}`;
+        variables[normalizedKey] = toCssValue(value, "");
+    });
+    return variables;
+}
+function buildThemeVariableDeclarations(config) {
+    return Object.entries(resolveThemeVariables(config))
+        .map(([key, value]) => `${key}: ${value};`)
+        .join("\n        ");
+}
+function applyThemeVariables(element, config) {
+    const variables = resolveThemeVariables(config);
+    Object.entries(variables).forEach(([key, value]) => {
+        element.style.setProperty(key, value);
+    });
+}
+function resolveFabIcon(config) {
+    return config.theme?.fab?.icon ?? config.chatIcon;
+}
+function shouldShowFabWave(config) {
+    return config.theme?.fab?.wave?.enabled !== false;
+}
+function shouldShowFabStatusDot(config) {
+    return config.theme?.fab?.statusDot?.enabled !== false;
 }
 
 const COUNTRY_CODES = [
@@ -1846,24 +2153,9 @@ function buildUIStyles(config, state) {
     const horizontalPosition = config.position?.includes("right")
         ? "right: 20px;"
         : "left: 20px;";
+    const themeVariables = buildThemeVariableDeclarations(config);
     return `
     <style>
-      :root {
-        --primary: ${config.primaryColor || "rgb(104, 59, 212)"};
-        --bg: ${config.backgroundColor || "#fff"};
-        --accent: ${config.secondaryColor || "#6366f1"};
-        --radius: ${config.borderRadius || "12px"};
-        --font-family: ${config.fontFamily || 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'};
-        --text-primary: #455a64;
-        --text-secondary: #576E93;
-        --body-bg: #f8f9fb;
-        --bubble-bg: #ffffff;
-        --input-bg: #f8f9fb;
-        --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        --header-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        --border-color: #e5e7eb;
-      }
-
       * {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
@@ -1874,11 +2166,13 @@ function buildUIStyles(config, state) {
       }
 
       .chatbot-container {
+        ${themeVariables}
         position: fixed;
         ${verticalPosition}
         ${horizontalPosition}
         z-index: 99999;
         font-family: var(--font-family);
+        color: var(--text-primary);
       }
 
       .chatbot-container,
@@ -1903,22 +2197,54 @@ function buildUIStyles(config, state) {
 
       .cw-fab {
         padding: 0 !important;
-        width: 56px !important;
-        height: 56px !important;
-        border-radius: 50% !important;
-        background: var(--primary) !important;
+        width: var(--fab-size) !important;
+        height: var(--fab-size) !important;
+        border-radius: var(--fab-radius) !important;
+        background: var(--fab-bg) !important;
         display: inline-grid;
         place-items: center !important;
-        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4) !important;
+        box-shadow: var(--fab-shadow) !important;
         cursor: pointer !important;
-        border: 3px solid var(--primary) !important;
+        border: var(--fab-border-width) solid var(--fab-border-color) !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        color: white !important;
+        color: var(--fab-text) !important;
         position: relative !important;
         z-index: 99999999999;
+        overflow: visible !important;
       }
 
-      .cw-fab > img {
+      .cw-fab-icon {
+        position: relative;
+        z-index: 2;
+        width: var(--fab-icon-size);
+        height: var(--fab-icon-size);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--fab-icon-color);
+        background: var(--fab-icon-bg);
+        padding: var(--fab-icon-padding);
+        border-radius: var(--fab-icon-radius);
+        overflow: hidden;
+        line-height: 1;
+        font-size: var(--fab-icon-size);
+      }
+
+      .cw-fab-icon > * {
+        max-width: 100%;
+        max-height: 100%;
+        flex-shrink: 0;
+      }
+
+      .cw-fab-icon img,
+      .cw-fab-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: contain;
+      }
+
+      .cw-fab-icon > img {
         border-radius: 50% !important;
         object-fit: cover !important;
         flex-shrink: 0 !important;
@@ -1926,19 +2252,20 @@ function buildUIStyles(config, state) {
 
       .cw-fab-status-dot {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 16px;
-        height: 16px;
+        top: var(--fab-status-dot-top);
+        left: var(--fab-status-dot-left);
+        width: var(--fab-status-dot-size);
+        height: var(--fab-status-dot-size);
         border-radius: 50%;
-        background: #22c55e;
-        box-shadow: 0 1px 3px rgba(44, 44, 44, 0.13);
+        background: var(--fab-status-dot-online);
+        box-shadow: var(--fab-status-dot-shadow);
         z-index: 2;
         pointer-events: none;
+        border: var(--fab-status-dot-border-width) solid var(--fab-status-dot-border-color);
       }
 
       .cw-fab-status-dot.offline {
-        background: #ef4444;
+        background: var(--fab-status-dot-offline);
       }
 
       .cw-fab-wave {
@@ -1946,18 +2273,18 @@ function buildUIStyles(config, state) {
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background: var(--primary);
-        animation: cw-fab-pulse 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        width: var(--fab-wave-size);
+        height: var(--fab-wave-size);
+        border-radius: var(--fab-radius);
+        background: var(--fab-wave-color);
+        animation: cw-fab-pulse var(--fab-wave-duration) cubic-bezier(0.4, 0, 0.2, 1) infinite;
         z-index: 0;
         pointer-events: none;
       }
 
       @keyframes cw-fab-pulse {
         0% {
-          opacity: 0.7;
+          opacity: var(--fab-wave-opacity);
           transform: translate(-50%, -50%) scale(1);
         }
 
@@ -1974,35 +2301,26 @@ function buildUIStyles(config, state) {
 
       .cw-fab:hover {
         transform: scale(1.05) !important;
-        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5) !important;
-      }
-
-      .cw-fab.offline::after {
-        content: "";
-        position: absolute !important;
-        top: 6px !important;
-        right: 6px !important;
-        width: 10px !important;
-        height: 10px !important;
-        background: #ef4444 !important;
-        border-radius: 50% !important;
-        border: 2px solid white !important;
+        box-shadow: var(--fab-hover-shadow) !important;
+        background: var(--fab-hover-bg) !important;
+        color: var(--fab-hover-text) !important;
+        border-color: var(--fab-hover-border-color) !important;
       }
 
       .cw-panel {
-        width: 380px;
-        max-width: calc(100vw - 40px);
-        height: 650px;
-        max-height: 85vh;
+        width: var(--panel-width);
+        max-width: var(--panel-max-width);
+        height: var(--panel-height);
+        max-height: var(--panel-max-height);
         display: ${state.isOpen ? "flex" : "none"};
         flex-direction: column;
         background: var(--bg);
-        border-radius: var(--radius);
+        border-radius: var(--panel-radius);
         box-shadow: var(--shadow);
         overflow: hidden;
         transform-origin: bottom right;
         animation: cw-entrance 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        border: 1px solid rgba(0, 0, 0, 0.06);
+        border: 1px solid var(--border-color);
       }
 
       @keyframes cw-entrance {
@@ -2018,25 +2336,25 @@ function buildUIStyles(config, state) {
       }
 
       .cw-header {
-        padding: 12px 16px;
+        padding: var(--header-padding);
         display: flex;
-        gap: 12px;
+        gap: var(--header-gap);
         align-items: center;
-        background: var(--primary) !important;
-        color: white;
+        background: var(--header-bg) !important;
+        color: var(--header-text);
         flex-shrink: 0;
         position: relative;
         box-shadow: var(--header-shadow);
       }
 
       .cw-header .avatar {
-        width: 38px;
-        height: 38px;
+        width: var(--header-avatar-size);
+        height: var(--header-avatar-size);
         border-radius: 50%;
         display: grid;
         place-items: center;
         font-size: 20px;
-        background: rgba(255, 255, 255, 0.15);
+        background: var(--header-avatar-bg);
         -webkit-backdrop-filter: blur(10px);
         backdrop-filter: blur(10px);
         flex-shrink: 0;
@@ -2048,22 +2366,23 @@ function buildUIStyles(config, state) {
       }
 
       .cw-header .title {
-        font-weight: 600;
-        font-size: 14px;
+        font-weight: var(--title-weight);
+        font-size: var(--title-size);
         margin-bottom: 3px;
-        line-height: 1.36;
+        line-height: var(--line-height);
         font-family: var(--font-family);
       }
 
       .cw-header .subtitle {
-        font-size: 14px;
+        font-size: var(--subtitle-size);
         opacity: 0.9;
-        font-weight: 500;
+        font-weight: var(--subtitle-weight);
         display: flex;
         align-items: center;
         gap: 5px;
-        line-height: 1.36;
+        line-height: var(--line-height);
         font-family: var(--font-family);
+        color: var(--header-subtext);
       }
 
       .connection-status {
@@ -2078,17 +2397,17 @@ function buildUIStyles(config, state) {
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: #22c55e;
+        background: var(--success-color);
         animation: pulse 2s infinite;
       }
 
       .connection-dot.offline {
-        background: #ef4444;
+        background: var(--error-color);
         animation: none;
       }
 
       .connection-dot.syncing {
-        background: #f59e0b;
+        background: var(--warning-color);
         animation: spin 1s linear infinite;
       }
 
@@ -2120,14 +2439,14 @@ function buildUIStyles(config, state) {
       }
 
       .cw-header .actions button {
-        background: rgba(255, 255, 255, 0.15);
+        background: var(--header-action-bg);
         border: none;
-        color: rgba(255, 255, 255, 0.95);
+        color: var(--header-text);
         font-size: 14px;
         cursor: pointer;
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
+        width: var(--header-action-size);
+        height: var(--header-action-size);
+        border-radius: var(--header-action-radius);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2137,16 +2456,39 @@ function buildUIStyles(config, state) {
       }
 
       .cw-header .actions button:hover {
-        background: rgba(255, 255, 255, 0.25);
         transform: scale(1.05);
       }
 
+      .reset-btn {
+        background: var(--header-reset-bg) !important;
+        color: var(--header-reset-text) !important;
+        border: 1px solid var(--header-reset-border) !important;
+      }
+
+      .reset-btn:hover {
+        background: var(--header-reset-hover-bg) !important;
+        color: var(--header-reset-hover-text) !important;
+        border-color: var(--header-reset-hover-border) !important;
+      }
+
+      .close {
+        background: var(--header-close-bg) !important;
+        color: var(--header-close-text) !important;
+        border: 1px solid var(--header-close-border) !important;
+      }
+
+      .close:hover {
+        background: var(--header-close-hover-bg) !important;
+        color: var(--header-close-hover-text) !important;
+        border-color: var(--header-close-hover-border) !important;
+      }
+
       .cw-body {
-        padding: 16px;
+        padding: var(--body-padding);
         background: var(--body-bg);
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: var(--body-gap);
         overflow-y: auto;
         flex: 1 1 0;
         min-height: 0;
@@ -2163,19 +2505,19 @@ function buildUIStyles(config, state) {
       }
 
       .cw-body::-webkit-scrollbar-thumb {
-        background: rgba(139, 92, 246, 0.2);
+        background: var(--scrollbar-thumb);
         border-radius: 3px;
       }
 
       .cw-body::-webkit-scrollbar-thumb:hover {
-        background: rgba(139, 92, 246, 0.3);
+        background: var(--scrollbar-thumb-hover);
       }
 
       .cw-message-group {
         margin-bottom: 0;
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: var(--message-gap);
       }
 
       .cw-message-group.assistant {
@@ -2189,8 +2531,8 @@ function buildUIStyles(config, state) {
       }
 
       .cw-bot-avatar {
-        width: 22px;
-        height: 22px;
+        width: var(--bot-avatar-size);
+        height: var(--bot-avatar-size);
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -2199,7 +2541,7 @@ function buildUIStyles(config, state) {
         flex-shrink: 0;
         margin-top: 2px;
         margin-right: 0;
-        background: gray;
+        background: var(--accent);
         padding: 1px;
         flex-basis: auto;
       }
@@ -2209,7 +2551,7 @@ function buildUIStyles(config, state) {
         flex-direction: column;
         gap: 4px;
         margin-bottom: 0;
-        max-width: 80%;
+        max-width: var(--message-max-width);
         position: relative;
       }
 
@@ -2222,14 +2564,14 @@ function buildUIStyles(config, state) {
       }
 
       .cw-bubble {
-        padding: 12px 16px;
-        border-radius: 12px;
+        padding: var(--bubble-padding);
+        border-radius: var(--bubble-radius);
         max-width: 100%;
-        font-size: 13px;
-        line-height: 1.46;
+        font-size: var(--message-size);
+        line-height: var(--line-height);
         word-wrap: break-word;
         position: relative;
-        font-weight: 600;
+        font-weight: var(--message-weight);
         letter-spacing: 0.01em;
         font-family: var(--font-family) !important;
         display: flex;
@@ -2238,18 +2580,18 @@ function buildUIStyles(config, state) {
       }
 
       .cw-msg.user .cw-bubble {
-        background: var(--primary);
-        color: #fff;
-        border-bottom-right-radius: 4px;
-        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
+        background: var(--user-bubble-bg);
+        color: var(--user-bubble-text);
+        border-bottom-right-radius: var(--bubble-tail-radius);
+        box-shadow: var(--user-bubble-shadow);
       }
 
       .cw-msg.assistant .cw-bubble {
         background: var(--bubble-bg);
         border: 1px solid var(--border-color);
-        color: var(--text-primary);
-        border-bottom-left-radius: 4px;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        color: var(--bubble-text);
+        border-bottom-left-radius: var(--bubble-tail-radius);
+        box-shadow: var(--assistant-bubble-shadow);
       }
 
       .cw-bubble-text {
@@ -2281,35 +2623,35 @@ function buildUIStyles(config, state) {
       .cw-options-list {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: var(--option-gap);
       }
 
       .cw-option-item {
-        background: var(--primary) !important;
+        background: var(--option-bg) !important;
         opacity: 1;
-        border-radius: 6px;
-        padding: 8px;
+        border-radius: var(--option-radius);
+        padding: var(--option-padding);
         cursor: pointer;
         transition: all 0.2s ease;
-        font-size: 13px;
-        color: white;
+        font-size: var(--option-size);
+        color: var(--option-text);
         display: flex;
         align-items: center;
         justify-content: space-between;
         max-width: 100%;
-        font-weight: 500;
+        font-weight: var(--message-weight);
         border: 1px solid transparent;
-        box-shadow: 0 2px 6px rgba(139, 92, 246, 0.2);
+        box-shadow: var(--option-shadow);
         letter-spacing: 0.01em;
         line-height: 1.3;
         font-family: var(--font-family);
-        min-width: 30ch;
+        min-width: var(--option-min-width);
       }
 
       .cw-option-item:hover:not(.disabled) {
         opacity: 0.9;
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        box-shadow: var(--option-hover-shadow);
         border-color: rgba(255, 255, 255, 0.2);
       }
 
@@ -2384,7 +2726,7 @@ function buildUIStyles(config, state) {
       }
 
       .cw-multi-hint {
-        font-size: 12px;
+        font-size: var(--caption-size);
         color: var(--text-secondary);
         flex: 1;
         min-width: 0;
@@ -2392,7 +2734,7 @@ function buildUIStyles(config, state) {
       }
 
       .cw-multi-hint.error {
-        color: #ef4444;
+        color: var(--error-color);
       }
 
       .chatbot-container .cw-multi-confirm {
@@ -2402,10 +2744,10 @@ function buildUIStyles(config, state) {
         align-items: center !important;
         justify-content: center !important;
         min-height: 40px !important;
-        background: transparent !important;
-        color: var(--primary) !important;
-        border: 2px solid var(--primary) !important;
-        border-radius: 10px !important;
+        background: var(--multi-confirm-bg) !important;
+        color: var(--multi-confirm-text) !important;
+        border: 2px solid var(--multi-confirm-border) !important;
+        border-radius: var(--button-radius) !important;
         padding: 8px 14px !important;
         cursor: pointer !important;
         font-weight: 600 !important;
@@ -2418,13 +2760,15 @@ function buildUIStyles(config, state) {
       .chatbot-container .cw-multi-confirm:disabled {
         opacity: 0.55;
         cursor: not-allowed !important;
-        background: transparent !important;
-        border-color: var(--primary) !important;
+        background: var(--multi-confirm-disabled-bg) !important;
+        color: var(--multi-confirm-disabled-text) !important;
+        border-color: var(--multi-confirm-disabled-border) !important;
       }
 
       .chatbot-container .cw-multi-confirm:hover:not(:disabled) {
-        background: var(--primary) !important;
-        color: #fff !important;
+        background: var(--multi-confirm-hover-bg) !important;
+        color: var(--multi-confirm-hover-text) !important;
+        border-color: var(--multi-confirm-hover-border) !important;
       }
 
       .chatbot-container .cw-multi-confirm:active:not(:disabled) {
@@ -2437,19 +2781,19 @@ function buildUIStyles(config, state) {
       }
 
       .cw-typing {
-        font-size: 13px;
+        font-size: var(--message-size);
         opacity: 0.85;
-        padding: 12px 16px;
-        border-radius: 12px;
+        padding: var(--bubble-padding);
+        border-radius: var(--bubble-radius);
         background: var(--bubble-bg);
         display: inline-flex;
         align-items: center;
         gap: 6px;
         border: 1px solid var(--border-color);
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-        border-bottom-left-radius: 4px;
-        color: var(--text-primary);
-        line-height: 1.46;
+        box-shadow: var(--assistant-bubble-shadow);
+        border-bottom-left-radius: var(--bubble-tail-radius);
+        color: var(--bubble-text);
+        line-height: var(--line-height);
         font-family: var(--font-family);
       }
 
@@ -2475,12 +2819,12 @@ function buildUIStyles(config, state) {
       }
 
       .cw-footer {
-        padding: 12px 14px !important;
+        padding: var(--footer-padding) !important;
         display: flex !important;
         gap: 10px !important;
         align-items: center !important;
         border-top: 1px solid var(--border-color) !important;
-        background: #fff !important;
+        background: var(--footer-bg) !important;
         position: relative;
         flex-shrink: 0;
         font-family: var(--font-family);
@@ -2492,30 +2836,30 @@ function buildUIStyles(config, state) {
         display: flex;
         align-items: center;
         background: var(--input-bg);
-        border-radius: 8px;
+        border-radius: var(--input-radius);
         padding: 0;
         border: 1px solid var(--border-color);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        box-shadow: var(--input-shadow);
         transition: all 0.2s ease;
         min-width: 0;
       }
 
       .cw-input.disabled {
-        background: #f3f4f6;
+        background: var(--body-bg);
         border-color: var(--border-color);
       }
 
       .cw-input:focus-within:not(.disabled) {
-        background: #fff;
+        background: var(--footer-bg);
         border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
+        box-shadow: var(--input-focus-shadow);
       }
 
       .cw-country-picker {
         display: flex;
         align-items: center;
         gap: 4px;
-        padding: 8px 10px;
+        padding: var(--country-picker-padding);
         border-right: 1px solid var(--border-color);
         cursor: pointer;
         user-select: none;
@@ -2527,18 +2871,18 @@ function buildUIStyles(config, state) {
       }
 
       .cw-country-picker:hover {
-        background: rgba(139, 92, 246, 0.05);
+        background: var(--body-bg);
       }
 
       .cw-country-code {
-        font-size: 13px;
+        font-size: var(--message-size);
         color: var(--text-primary);
         font-weight: 600;
         letter-spacing: 0.02em;
       }
 
       .cw-country-name {
-        font-size: 11px;
+        font-size: var(--caption-size);
         color: var(--text-secondary);
         font-weight: 500;
         text-transform: uppercase;
@@ -2558,15 +2902,15 @@ function buildUIStyles(config, state) {
 
       .cw-country-dropdown {
         position: fixed !important;
-        background: white;
+        background: var(--menu-bg);
         border: 1px solid var(--border-color);
-        border-radius: 8px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+        border-radius: var(--menu-radius);
+        box-shadow: var(--dropdown-shadow);
         max-height: 320px;
         overflow-y: auto;
         z-index: 100000 !important;
         display: none;
-        min-width: 360px;
+        min-width: var(--country-dropdown-width);
       }
 
       .cw-country-dropdown.open {
@@ -2597,12 +2941,12 @@ function buildUIStyles(config, state) {
       }
 
       .cw-country-dropdown::-webkit-scrollbar-thumb {
-        background: rgba(139, 92, 246, 0.25);
+        background: var(--scrollbar-thumb);
         border-radius: 3px;
       }
 
       .cw-country-dropdown::-webkit-scrollbar-thumb:hover {
-        background: rgba(139, 92, 246, 0.4);
+        background: var(--scrollbar-thumb-hover);
       }
 
       .cw-country-item {
@@ -2610,11 +2954,11 @@ function buildUIStyles(config, state) {
         grid-template-columns: 1fr auto auto;
         gap: 10px;
         align-items: center;
-        padding: 10px 14px;
+        padding: var(--country-item-padding);
         cursor: pointer;
         transition: all 0.15s ease;
-        font-size: 13px;
-        border-bottom: 1px solid #f3f4f6;
+        font-size: var(--message-size);
+        border-bottom: 1px solid var(--border-color);
         position: relative;
         font-family: var(--font-family);
       }
@@ -2646,16 +2990,16 @@ function buildUIStyles(config, state) {
       .cw-country-item-name {
         color: var(--text-primary);
         font-weight: 500;
-        font-size: 13px;
+        font-size: var(--message-size);
         text-align: left;
         letter-spacing: 0.01em;
       }
 
       .cw-country-item-dial {
         color: var(--primary);
-        font-size: 12px;
+        font-size: var(--caption-size);
         font-weight: 600;
-        background: rgba(139, 92, 246, 0.08);
+        background: var(--body-bg);
         padding: 4px 8px;
         border-radius: 4px;
         min-width: 52px;
@@ -2665,9 +3009,9 @@ function buildUIStyles(config, state) {
 
       .cw-country-item-code {
         color: var(--text-secondary);
-        font-size: 11px;
+        font-size: calc(var(--caption-size) - 1px);
         font-weight: 600;
-        background: #f3f4f6;
+        background: var(--body-bg);
         padding: 4px 7px;
         border-radius: 4px;
         min-width: 38px;
@@ -2677,7 +3021,7 @@ function buildUIStyles(config, state) {
       }
 
       .cw-country-item:hover .cw-country-item-dial {
-        background: rgba(139, 92, 246, 0.12);
+        background: rgba(255, 255, 255, 0.18);
       }
 
       .cw-country-item.selected .cw-country-item-dial {
@@ -2691,7 +3035,7 @@ function buildUIStyles(config, state) {
         align-items: center;
         margin-right: 4px;
         flex-shrink: 0;
-        height: 32px;
+        height: var(--menu-toggle-size);
       }
 
       .pull-left {
@@ -2707,21 +3051,25 @@ function buildUIStyles(config, state) {
       }
 
       .menu-toggle-btn {
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        background: transparent;
-        border: none;
+        width: var(--menu-toggle-size);
+        height: var(--menu-toggle-size);
+        border-radius: var(--button-radius);
+        background: var(--menu-toggle-bg);
+        border: 1px solid var(--menu-toggle-border);
         padding: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         position: relative;
         cursor: pointer;
+        color: var(--menu-toggle-text);
       }
 
       .menu-toggle-btn:hover {
-        opacity: 0.8;
+        opacity: 1;
+        background: var(--menu-toggle-hover-bg);
+        color: var(--menu-toggle-hover-text);
+        border-color: var(--menu-toggle-hover-border);
       }
 
       .menu-toggle-btn:active {
@@ -2753,19 +3101,19 @@ function buildUIStyles(config, state) {
 
       .menu-options-div {
         position: absolute;
-        width: 280px;
+        width: var(--menu-width);
         bottom: 45px;
         left: 0;
         max-height: 300px;
         min-height: auto;
         overflow: hidden;
         overflow-y: auto;
-        background: white;
+        background: var(--menu-bg);
         z-index: 99999;
-        box-shadow: 0 3px 20px rgba(21, 38, 194, 0.3);
-        border: 1px solid rgba(119, 124, 124, 0.15);
-        border-radius: 6px;
-        padding: 15px;
+        box-shadow: var(--menu-shadow);
+        border: 1px solid var(--menu-border-color);
+        border-radius: var(--menu-radius);
+        padding: var(--menu-padding);
         box-sizing: border-box;
         transition: opacity 150ms cubic-bezier(0.16, 1, 0.3, 1), transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
         transform-origin: bottom left;
@@ -2791,11 +3139,11 @@ function buildUIStyles(config, state) {
       }
 
       .menu-option-div {
-        padding: 10px;
+        padding: var(--menu-item-padding);
         display: flex;
         align-items: center;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
+        border: 1px solid var(--menu-border-color);
+        border-radius: var(--button-radius);
         width: 100%;
         box-sizing: border-box;
       }
@@ -2817,8 +3165,8 @@ function buildUIStyles(config, state) {
         align-items: center;
         gap: 8px;
         text-decoration: none;
-        color: #455a64;
-        font-size: 14px;
+        color: var(--menu-text);
+        font-size: var(--subtitle-size);
         padding: 4px 0;
         transition: color 0.2s ease;
         width: 100%;
@@ -2838,7 +3186,13 @@ function buildUIStyles(config, state) {
       }
 
       .menu-icon-smatest {
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         flex-shrink: 0;
+        overflow: hidden;
       }
 
       .cw-input input {
@@ -2846,12 +3200,12 @@ function buildUIStyles(config, state) {
         background: transparent;
         outline: none;
         width: 100%;
-        font-size: 16px;
-        padding: 10px 50px 10px 12px;
-        color: var(--text-primary);
+        font-size: var(--input-size);
+        padding: 10px 50px 10px var(--input-padding-x);
+        color: var(--input-text);
         font-family: var(--font-family);
         letter-spacing: 0.01em;
-        line-height: 1.46;
+        line-height: var(--line-height);
       }
 
       .cw-input.phone-input input {
@@ -2864,7 +3218,7 @@ function buildUIStyles(config, state) {
       }
 
       .cw-input input::placeholder {
-        color: #9ca3af;
+        color: var(--input-placeholder);
         font-weight: 400;
       }
 
@@ -2873,24 +3227,27 @@ function buildUIStyles(config, state) {
         right: 6px;
         top: 50%;
         transform: translateY(-50%);
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
+        width: var(--send-button-size);
+        height: var(--send-button-size);
+        border-radius: var(--button-radius);
         padding: 0;
         display: inline-grid;
         place-items: center;
-        border: none;
+        border: 1px solid var(--send-button-border);
         cursor: pointer;
-        box-shadow: 0 2px 6px rgba(139, 92, 246, 0.25);
-        background: var(--primary) !important;
-        color: #fff;
+        box-shadow: var(--send-button-shadow);
+        background: var(--send-button-bg) !important;
+        color: var(--send-button-text);
         transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
         flex-shrink: 0;
       }
 
       .cw-send:hover:not(:disabled) {
         transform: translateY(-50%) scale(1.05);
-        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35);
+        box-shadow: var(--option-hover-shadow);
+        background: var(--send-button-hover-bg) !important;
+        color: var(--send-button-hover-text) !important;
+        border-color: var(--send-button-hover-border) !important;
       }
 
       .cw-send:active:not(:disabled) {
@@ -2898,21 +3255,69 @@ function buildUIStyles(config, state) {
       }
 
       .cw-send:disabled {
-        background: #d1d5db;
+        background: var(--send-button-disabled-bg);
+        color: var(--send-button-disabled-text);
+        border-color: var(--send-button-disabled-border);
         cursor: not-allowed;
         box-shadow: none;
         opacity: 0.6;
       }
 
-      .cw-send svg {
-        width: 14px;
-        height: 14px;
-        stroke: white;
+      .cw-input.phone-input .cw-input-menu {
+        display: none;
+      }
+
+      .cw-control-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        line-height: 1;
+        color: currentColor;
+        font-size: inherit;
+        overflow: hidden;
+      }
+
+      .cw-control-icon > * {
+        max-width: 100%;
+        max-height: 100%;
+        flex-shrink: 0;
+      }
+
+      .cw-control-icon svg,
+      .cw-control-icon img,
+      .menu-icon-smatest svg,
+      .menu-icon-smatest img,
+      .cw-button-icon svg,
+      .cw-button-icon img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: contain;
+      }
+
+      .cw-control-icon svg {
+        width: 16px;
+        height: 16px;
         display: block;
       }
 
-      .cw-input.phone-input .cw-input-menu {
-        display: none;
+      .cw-send-icon svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .cw-button-icon {
+        width: 14px;
+        height: 14px;
+        margin-right: 6px;
+        flex-shrink: 0;
+      }
+
+      .cw-button-label {
+        display: inline-flex;
+        align-items: center;
       }
 
       .cw-reset-modal-bg {
@@ -2921,8 +3326,8 @@ function buildUIStyles(config, state) {
         left: 0;
         right: 0;
         bottom: 0;
-        border-radius: var(--radius);
-        background: rgba(0, 0, 0, 0.6);
+        border-radius: var(--panel-radius);
+        background: var(--overlay-bg);
         -webkit-backdrop-filter: blur(2px);
         display: flex;
         justify-content: center;
@@ -2932,29 +3337,29 @@ function buildUIStyles(config, state) {
       }
 
       .cw-reset-modal {
-        background: #fff;
-        border-radius: 12px;
-        padding: 24px;
-        max-width: 300px;
+        background: var(--modal-bg);
+        border-radius: var(--modal-radius);
+        padding: var(--modal-padding);
+        max-width: var(--modal-width);
         width: 90%;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        box-shadow: var(--modal-shadow);
         text-align: center;
         font-family: var(--font-family);
       }
 
       .cw-reset-modal h2 {
-        font-size: 16px;
+        font-size: var(--title-size);
         margin-bottom: 10px;
         font-weight: 600;
-        color: var(--text-primary);
+        color: var(--modal-title-text);
         letter-spacing: 0.01em;
       }
 
       .cw-reset-modal p {
-        font-size: 13px;
+        font-size: var(--message-size);
         margin-bottom: 20px;
-        color: var(--text-secondary);
-        line-height: 1.46;
+        color: var(--modal-text);
+        line-height: var(--line-height);
       }
 
       .cw-reset-actions {
@@ -2972,7 +3377,7 @@ function buildUIStyles(config, state) {
         justify-content: center !important;
         min-height: 40px !important;
         padding: 9px 18px !important;
-        border-radius: 10px !important;
+        border-radius: var(--button-radius) !important;
         cursor: pointer !important;
         font-size: 13px !important;
         font-weight: 600 !important;
@@ -2983,25 +3388,27 @@ function buildUIStyles(config, state) {
       }
 
       .chatbot-container .cw-reset-modal .cw-btn-cancel {
-        background: #fff !important;
-        border: 1px solid #d1d5db !important;
-        color: var(--text-primary) !important;
+        background: var(--cancel-button-bg) !important;
+        border: 1px solid var(--cancel-button-border) !important;
+        color: var(--cancel-button-text) !important;
       }
 
       .chatbot-container .cw-reset-modal .cw-btn-cancel:hover {
-        background: #f9fafb !important;
-        border-color: #9ca3af !important;
+        background: var(--cancel-button-hover-bg) !important;
+        color: var(--cancel-button-hover-text) !important;
+        border-color: var(--cancel-button-hover-border) !important;
       }
 
       .chatbot-container .cw-reset-modal .cw-btn-reset {
-        background: #000 !important;
-        color: #fff !important;
-        border: 1px solid #000 !important;
+        background: var(--reset-button-bg) !important;
+        color: var(--reset-button-text) !important;
+        border: 1px solid var(--reset-button-border) !important;
       }
 
       .chatbot-container .cw-reset-modal .cw-btn-reset:hover {
-        background: #1f2937 !important;
-        border-color: #1f2937 !important;
+        background: var(--reset-button-hover-bg) !important;
+        color: var(--reset-button-hover-text) !important;
+        border-color: var(--reset-button-hover-border) !important;
       }
 
       @media (max-width: 480px) {
@@ -3046,16 +3453,17 @@ function buildUIStyles(config, state) {
           right: 20px !important;
           pointer-events: auto !important;
           z-index: 99999;
-          width: 54px !important;
-          height: 54px !important;
+          width: var(--mobile-fab-size) !important;
+          height: var(--mobile-fab-size) !important;
         }
 
         .cw-panel {
           position: fixed !important;
-          width: 92% !important;
-          max-width: 92% !important;
-          height: 92vh !important;
-          max-height: 92vh !important;
+          width: var(--mobile-panel-width) !important;
+          max-width: var(--mobile-panel-max-width) !important;
+          height: var(--mobile-panel-height) !important;
+          max-height: var(--mobile-panel-max-height) !important;
+          border-radius: var(--mobile-panel-radius) !important;
           top: 50% !important;
           left: 50% !important;
           transform: translate(-50%, -50%) !important;
@@ -3083,18 +3491,18 @@ function buildUIStyles(config, state) {
           content: "";
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.4);
+          background: var(--overlay-bg);
           z-index: -1;
           -webkit-backdrop-filter: blur(3px);
           backdrop-filter: blur(3px);
         }
 
         .cw-body {
-          padding: 14px;
+          padding: var(--mobile-body-padding);
         }
 
         .cw-msg {
-          max-width: 85%;
+          max-width: var(--mobile-message-max-width);
         }
 
         .cw-country-dropdown {
@@ -3108,16 +3516,28 @@ function buildUIStyles(config, state) {
 
       @media (max-width: 480px) {
         .cw-panel {
-          width: 96% !important;
-          max-width: 96% !important;
-          height: 94vh !important;
-          max-height: 94vh !important;
+          width: min(96%, var(--mobile-panel-width)) !important;
+          max-width: min(96%, var(--mobile-panel-max-width)) !important;
+          height: min(94vh, var(--mobile-panel-height)) !important;
+          max-height: min(94vh, var(--mobile-panel-max-height)) !important;
         }
       }
     </style>
   `;
 }
 
+const DEFAULT_FAB_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+function renderFabHTML(config, isOnline) {
+    return `
+    <span class="cw-fab-icon" aria-hidden="true">
+      ${renderIconMarkup(resolveFabIcon(config), DEFAULT_FAB_ICON)}
+    </span>
+    ${shouldShowFabStatusDot(config)
+        ? `<span class="cw-fab-status-dot ${isOnline ? "online" : "offline"}"></span>`
+        : ""}
+    ${shouldShowFabWave(config) ? '<div class="cw-fab-wave"></div>' : ""}
+  `;
+}
 function resolveDefaultPhoneSelection(config) {
     const defaultPhoneCountry = COUNTRY_CODES.find((country) => country.dial_code ===
         config.inputConfig?.phoneConfig?.defaultCountryCode) ||
@@ -3154,16 +3574,14 @@ function renderInputHTML(config, inputType, phoneSelection) {
     return `
     <div class="cw-input ${inputType === "phone" ? "phone-input" : ""}">
       ${inputType === "phone" ? renderCountryPickerHTML(phoneSelection) : ""}
-      ${renderMenuHTML(config.inputConfig?.menu, inputType)}
+      ${renderMenuHTML(config, config.inputConfig?.menu, inputType)}
       <input 
         type="${inputType === "email" ? "email" : inputType === "phone" ? "tel" : "text"}" 
         placeholder="${config.inputConfig?.placeholder || config.placeholder || "Type your message..."}"
         aria-label="Type a message"
       />
       <button class="cw-send" aria-label="Send message" title="Send message">
-        <svg width="20px" height="20px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
-          <path fill="#fff" fill-rule="evenodd" d="M2.345 2.245a1 1 0 0 1 1.102-.14l18 9a1 1 0 0 1 0 1.79l-18 9a1 1 0 0 1-1.396-1.211L4.613 13H10a1 1 0 1 0 0-2H4.613L2.05 3.316a1 1 0 0 1 .294-1.071z" clip-rule="evenodd"/>
-        </svg>
+        ${renderControlIcon(config, "send", "cw-control-icon cw-send-icon")}
       </button>
     </div>
   `;
@@ -3173,13 +3591,11 @@ function renderUIHTML(config, state, inputType, phoneSelection) {
     ${buildUIStyles(config, state)}
     <div class="chatbot-container" role="region" aria-label="Chat support widget">
       <button class="cw-fab" aria-label="Open chat">
-        ${config.chatIcon || `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`}
-        <span class="cw-fab-status-dot online"></span>
-        <div class="cw-fab-wave"></div>
+        ${renderFabHTML(config, state.isOnline)}
       </button>
       <div class="cw-panel" role="dialog" aria-modal="false">
         <div class="cw-header">
-          <div class="avatar">${config.botIcon || "🤖"}</div>
+          <div class="avatar">${renderIconMarkup(config.botIcon, "🤖")}</div>
           <div class="titlewrap">
             <div class="title">${config.title || "Chatbot"}</div>
             <div class="subtitle">
@@ -3190,8 +3606,8 @@ function renderUIHTML(config, state, inputType, phoneSelection) {
             </div>
           </div>
           <div class="actions">
-            <button class="reset-btn" title="Reset Session"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
-            <button class="close" title="Close">✕</button>
+            <button class="reset-btn" title="Reset Session">${renderControlIcon(config, "headerReset", "cw-control-icon cw-reset-icon")}</button>
+            <button class="close" title="Close">${renderControlIcon(config, "close", "cw-control-icon cw-close-icon")}</button>
           </div>
         </div>
         <div class="cw-body" tabindex="0" aria-live="polite"></div>
@@ -3222,6 +3638,19 @@ function createUI(root, config, state, handlers) {
     let inputWrapper = container.querySelector(".cw-input");
     let input = inputWrapper.querySelector("input");
     let sendBtn = inputWrapper.querySelector(".cw-send");
+    const syncControlMarkup = () => {
+        resetBtn.innerHTML = renderControlIcon(config, "headerReset", "cw-control-icon cw-reset-icon");
+        closeBtn.innerHTML = renderControlIcon(config, "close", "cw-control-icon cw-close-icon");
+        sendBtn.innerHTML = renderControlIcon(config, "send", "cw-control-icon cw-send-icon");
+        const menuToggleBtn = inputWrapper.querySelector(".menu-toggle-btn");
+        if (menuToggleBtn) {
+            menuToggleBtn.innerHTML = `
+        ${renderControlIcon(config, "menu", "cw-control-icon menu-icon-sb menu-toggle-icon")}
+        ${renderControlIcon(config, "menuClose", "cw-control-icon menu-icon-sb menu-close-icon icon-hidden")}
+      `;
+        }
+        fab.innerHTML = renderFabHTML(config, state.isOnline);
+    };
     const scrollToBottom = (instant = false) => {
         if (panel.style.display === "none")
             return;
@@ -3315,6 +3744,7 @@ function createUI(root, config, state, handlers) {
         const nextInputWrapper = temp.firstElementChild;
         previousInputWrapper?.replaceWith(nextInputWrapper);
         syncInputRefs(footer);
+        syncControlMarkup();
         bindInputEvents();
         attachMenuListeners(container, config.inputConfig?.menu, handlers, inputWrapper);
         if (type === "phone") {
@@ -3342,8 +3772,8 @@ function createUI(root, config, state, handlers) {
       <h2>Reset Chat</h2>
       <p>Confirm reset?<br>This will create a new session</p>
       <div class="cw-reset-actions">
-        <button class="cw-btn-cancel">Cancel</button>
-        <button class="cw-btn-reset">Reset</button>
+        <button class="cw-btn-cancel">${renderOptionalControlIcon(config, "modalCancel", "cw-control-icon cw-button-icon")}<span class="cw-button-label">Cancel</span></button>
+        <button class="cw-btn-reset">${renderOptionalControlIcon(config, "modalReset", "cw-control-icon cw-button-icon")}<span class="cw-button-label">Reset</span></button>
       </div>
     `;
         modalBg.appendChild(modal);
@@ -3362,6 +3792,7 @@ function createUI(root, config, state, handlers) {
     bindInputEvents();
     setInputDisabledState(state.inputDisabled);
     attachMenuListeners(container, config.inputConfig?.menu);
+    syncControlMarkup();
     fab.addEventListener("click", () => {
         handlers.onToggle();
         if (!state.inputDisabled) {
@@ -3394,21 +3825,8 @@ function createUI(root, config, state, handlers) {
         updateConfig(newConfig) {
             Object.assign(config, newConfig);
             const element = root.querySelector(".chatbot-container");
-            if (newConfig.primaryColor) {
-                element.style.setProperty("--primary", newConfig.primaryColor);
-            }
-            if (newConfig.backgroundColor) {
-                element.style.setProperty("--bg", newConfig.backgroundColor);
-            }
-            if (newConfig.secondaryColor) {
-                element.style.setProperty("--accent", newConfig.secondaryColor);
-            }
-            if (newConfig.borderRadius) {
-                element.style.setProperty("--radius", newConfig.borderRadius);
-            }
-            if (newConfig.fontFamily) {
-                element.style.setProperty("--font-family", newConfig.fontFamily);
-            }
+            applyThemeVariables(element, config);
+            syncControlMarkup();
         },
         focusInput() {
             if (!state.inputDisabled)
@@ -3706,8 +4124,8 @@ class StorageService {
 }
 
 var storage_service = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  StorageService: StorageService
+    __proto__: null,
+    StorageService: StorageService
 });
 
 class MessageService {
@@ -3837,8 +4255,8 @@ class MessageService {
 }
 
 var message_service = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  MessageService: MessageService
+    __proto__: null,
+    MessageService: MessageService
 });
 
 class HooksService {
@@ -4671,6 +5089,23 @@ class Chatbot {
         this.eventEmitter.emit("configUpdate", this.config);
     }
     /**
+     * Reset theme-related configuration back to built-in defaults
+     */
+    resetTheme() {
+        this.config = {
+            ...this.config,
+            primaryColor: DEFAULT_CONFIG.primaryColor,
+            secondaryColor: DEFAULT_CONFIG.secondaryColor,
+            backgroundColor: DEFAULT_CONFIG.backgroundColor,
+            textColor: DEFAULT_CONFIG.textColor,
+            borderRadius: DEFAULT_CONFIG.borderRadius,
+            fontFamily: DEFAULT_CONFIG.fontFamily,
+            theme: undefined,
+        };
+        this.ui.updateConfig(this.config);
+        this.eventEmitter.emit("configUpdate", this.config);
+    }
+    /**
      * Get current configuration
      */
     getConfig() {
@@ -4854,8 +5289,8 @@ function autoOpenChatbotTTL(bot, openAndInit, options = {}) {
 }
 
 var autoOpenTtl = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  autoOpenChatbotTTL: autoOpenChatbotTTL
+    __proto__: null,
+    autoOpenChatbotTTL: autoOpenChatbotTTL
 });
 
 // Web Component
@@ -4904,6 +5339,9 @@ class ChatbotElement extends HTMLElement {
     }
     updateConfig(config) {
         this.chatbot?.updateConfig(config);
+    }
+    resetTheme() {
+        this.chatbot?.resetTheme();
     }
 }
 // Register web component if not already registered
